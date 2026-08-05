@@ -1,0 +1,141 @@
+/* Status badge — design.md §5. Always a dot AND a label: colour never carries
+   meaning on its own (§2.4). */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: currentColor;
+  flex: 0 0 auto;
+}
+
+/* Progress bar */
+.track {
+  flex: 1;
+  background: var(--surface-alt);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+
+.fill {
+  height: 100%;
+  border-radius: var(--radius-full);
+  transition: width var(--dur-slow) var(--ease);
+}
+
+.trackNotStarted {
+  border: 1px dashed var(--border-strong);
+  background: transparent;
+}
+
+.progressRow { display: flex; align-items: center; gap: 12px; }
+
+.pctText {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  flex: 0 0 auto;
+  min-width: 44px;
+  text-align: right;
+}
+
+/* KPI card — design.md §5 */
+.kpi {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.kpiTop { display: flex; align-items: center; justify-content: space-between; }
+
+.kpiBadge {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-full);
+  background: var(--blue-50);
+  color: var(--blue-600);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.kpiDelta { font-size: 12px; font-weight: 500; }
+.kpiUp { color: var(--success-fg); }
+.kpiDown { color: var(--danger-fg); }
+
+.kpiValue {
+  font-size: 32px;
+  line-height: 36px;
+  font-weight: 700;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.kpiLabel { font-size: 13px; color: var(--text); }
+.kpiMeta { font-size: 12px; color: var(--text-muted); }
+
+/* Avatar */
+.avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-full);
+  background: var(--blue-50);
+  color: var(--blue-700);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+  flex: 0 0 auto;
+}
+
+/* Toast */
+.toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--ink);
+  color: #fff;
+  padding: 10px 18px;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  font-size: 13px;
+  z-index: 100;
+  animation: novefade var(--dur-base) var(--ease);
+}
+
+/* Card */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  box-shadow: var(--shadow-sm);
+}
+
+.cardTitle { font-size: 18px; line-height: 26px; font-weight: 600; }
+
+.overline {
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}

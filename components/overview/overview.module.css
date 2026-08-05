@@ -1,0 +1,211 @@
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.h1 { font-size: 30px; line-height: 38px; font-weight: 700; }
+
+.variantSwitch { display: flex; align-items: center; gap: 8px; }
+.variantLabel {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.segmented {
+  display: inline-flex;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.segment {
+  height: 32px;
+  padding: 0 14px;
+  border: none;
+  background: var(--surface);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+}
+.segment:hover { background: var(--surface-alt); }
+.segmentActive { background: var(--blue-50); color: var(--blue-700); }
+
+/* Company hero — design.md §5 */
+.hero {
+  background: var(--hero-gradient);
+  color: #fff;
+  border-radius: var(--radius-xl);
+  padding: 40px;
+  display: flex;
+  gap: 40px;
+  align-items: flex-start;
+  margin-bottom: 24px;
+}
+
+.heroMain { flex: 1; min-width: 0; }
+
+.heroOverline {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, .7);
+}
+
+.heroGoal {
+  margin-top: 12px;
+  font-size: 34px;
+  line-height: 42px;
+  font-weight: 700;
+  color: #fff;
+  max-width: 22ch;
+}
+
+.heroProgressRow {
+  margin-top: 28px;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+.heroProgressLabel { font-size: 13px; color: rgba(255, 255, 255, .82); }
+.heroProgressValue { font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+.heroTrack {
+  margin-top: 10px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, .18);
+  overflow: hidden;
+}
+.heroFill {
+  height: 100%;
+  border-radius: var(--radius-full);
+  background: #fff;
+  transition: width var(--dur-slow) var(--ease);
+}
+
+.heroNote { margin-top: 12px; font-size: 12px; color: rgba(255, 255, 255, .62); }
+
+.heroStats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px 40px;
+  flex: 0 0 auto;
+}
+.heroStatValue { font-size: 30px; line-height: 36px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.heroStatLabel { font-size: 12px; color: rgba(255, 255, 255, .7); margin-top: 2px; }
+
+/* KPI row — 4/2/1 per design.md §4 */
+.kpiRow {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+/* Sections */
+.sectionHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.sectionTitle { font-size: 24px; line-height: 32px; font-weight: 600; }
+.sectionMeta { font-size: 13px; color: var(--text-muted); }
+
+.section { margin-bottom: 32px; }
+
+.deptGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+/* Department card */
+.deptCard {
+  display: block;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  box-shadow: var(--shadow-sm);
+  color: var(--text);
+  transition: box-shadow var(--dur-base) var(--ease), border-color var(--dur-base) var(--ease);
+}
+.deptCard:hover {
+  box-shadow: var(--shadow-md);
+  border-color: var(--blue-200);
+  text-decoration: none;
+  color: var(--text);
+}
+
+.deptTop { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.deptEmoji { font-size: 20px; }
+.deptName { flex: 1; font-size: 18px; line-height: 26px; font-weight: 600; color: var(--ink); }
+.deptArrow { color: var(--text-muted); }
+
+.deptBadgeRow { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.deptMeta { margin-top: 12px; font-size: 12px; color: var(--text-muted); }
+
+/* Charts grid */
+.chartGrid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 16px;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  box-shadow: var(--shadow-sm);
+  min-width: 0;
+}
+.cardTitle { font-size: 18px; line-height: 26px; font-weight: 600; margin-bottom: 4px; }
+.cardMeta { font-size: 12px; color: var(--text-muted); margin-bottom: 16px; }
+
+/* Attention list */
+.attentionRow {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+.attentionRow:last-child { border-bottom: none; }
+
+.attentionMain { flex: 1; min-width: 0; }
+.attentionTitle {
+  font-size: 14px;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.attentionMeta { font-size: 12px; color: var(--text-muted); margin-top: 3px; }
+.attentionBar { flex: 0 0 180px; }
+
+.stale { color: var(--warning-fg); font-weight: 500; }
+
+.empty { color: var(--text-muted); font-size: 13px; padding: 12px 0; }
+
+@media (max-width: 1200px) {
+  .kpiRow { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .chartGrid { grid-template-columns: 1fr; }
+  .hero { flex-direction: column; gap: 28px; }
+}
+
+@media (max-width: 640px) {
+  .kpiRow { grid-template-columns: 1fr; }
+  .heroGoal { font-size: 26px; line-height: 34px; }
+  .attentionBar { flex-basis: 100px; }
+}

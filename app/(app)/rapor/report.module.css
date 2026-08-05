@@ -1,0 +1,91 @@
+.h1 { font-size: 30px; line-height: 38px; font-weight: 700; margin-bottom: 4px; }
+.lead { color: var(--text-muted); margin-bottom: 24px; }
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  margin-bottom: 32px;
+}
+
+.cardHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border);
+}
+.cardTitle { font-size: 18px; line-height: 26px; font-weight: 600; }
+.cardMeta { font-size: 12px; color: var(--text-muted); }
+
+.table { width: 100%; border-collapse: collapse; }
+
+.th {
+  background: var(--surface-alt);
+  border-bottom: 1px solid var(--border);
+  padding: 0;
+  text-align: left;
+  position: sticky;
+  top: 0;
+}
+.thNum { text-align: right; }
+
+.sortBtn {
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 10px 24px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  cursor: pointer;
+  text-align: inherit;
+}
+.sortBtn:hover { color: var(--text); }
+.sortActive { color: var(--blue-700); }
+
+.arrow { margin-left: 6px; font-size: 10px; }
+
+.row { border-bottom: 1px solid var(--border); transition: background var(--dur-fast) var(--ease); }
+.row:hover { background: var(--blue-50); }
+.row:last-child { border-bottom: none; }
+
+.td { padding: 12px 24px; font-size: 14px; }
+.tdNum { text-align: right; font-variant-numeric: tabular-nums; }
+
+.deptCell { display: flex; align-items: center; gap: 10px; }
+.deptName { color: var(--text); }
+.leadName { color: var(--text-muted); font-size: 12px; }
+
+.progressCell { min-width: 200px; }
+
+.openRow {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 24px;
+  border-bottom: 1px solid var(--border);
+}
+.openRow:last-child { border-bottom: none; }
+.openMain { flex: 1; min-width: 0; }
+.openTitle { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.openMeta { font-size: 12px; color: var(--text-muted); margin-top: 3px; }
+.openBar { flex: 0 0 180px; }
+
+.totals {
+  display: flex;
+  gap: 32px;
+  padding: 16px 24px;
+  background: var(--surface-alt);
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+}
+.totalLabel { color: var(--text-muted); }
+.totalValue { font-weight: 600; font-variant-numeric: tabular-nums; color: var(--ink); }
+
+.empty { padding: 24px; color: var(--text-muted); font-size: 13px; }

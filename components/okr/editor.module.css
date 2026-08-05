@@ -1,0 +1,144 @@
+.bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--blue-200);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  box-shadow: var(--shadow-md);
+  margin-bottom: 24px;
+}
+
+.panelTitle { font-size: 18px; line-height: 26px; font-weight: 600; margin-bottom: 20px; }
+
+.field { margin-bottom: 16px; }
+
+.label {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+.input {
+  width: 100%;
+  height: 38px;
+  padding: 0 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+}
+.input:focus {
+  outline: none;
+  border-color: var(--blue-500);
+  box-shadow: var(--shadow-focus);
+}
+
+.row { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+.row > * { flex: 1; min-width: 110px; }
+
+.krCard {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 14px;
+  margin-bottom: 12px;
+}
+
+.krHead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.krIndex {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.remove {
+  background: none;
+  border: none;
+  color: var(--danger-fg);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 4px 6px;
+  border-radius: var(--radius-sm);
+}
+.remove:hover { background: var(--danger-bg); }
+.remove:disabled { opacity: .4; cursor: default; }
+
+.addKr {
+  width: 100%;
+  height: 38px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--blue-600);
+  font-weight: 500;
+  cursor: pointer;
+}
+.addKr:hover { background: var(--blue-50); }
+.addKr:disabled { opacity: .45; cursor: default; }
+
+.panelActions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 20px; }
+
+.primary {
+  height: 38px;
+  padding: 0 16px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--blue-500);
+  color: #fff;
+  font-weight: 500;
+  cursor: pointer;
+}
+.primary:hover:not(:disabled) { background: var(--blue-600); }
+.primary:disabled { opacity: .45; cursor: default; }
+
+.secondary {
+  height: 34px;
+  padding: 0 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--blue-600);
+  font-weight: 500;
+  cursor: pointer;
+}
+.secondary:hover { background: var(--surface-alt); }
+.secondary:disabled { opacity: .45; cursor: default; }
+
+.danger {
+  height: 34px;
+  padding: 0 14px;
+  border: 1px solid var(--danger-fg);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--danger-fg);
+  font-weight: 500;
+  cursor: pointer;
+}
+.danger:hover { background: var(--danger-bg); }
+.danger:disabled { opacity: .45; cursor: default; }
+
+/* Destructive confirmation — states the cost before it happens. */
+.confirm {
+  flex-basis: 100%;
+  margin-top: 8px;
+  padding: 14px 16px;
+  border: 1px solid var(--danger-fg);
+  border-radius: var(--radius-md);
+  background: var(--danger-bg);
+}
+.confirmText { color: var(--danger-fg); font-size: 13px; line-height: 20px; }
+.confirmActions { display: flex; gap: 10px; margin-top: 12px; }
+
+.error {
+  flex-basis: 100%;
+  margin-top: 8px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--danger-bg);
+  color: var(--danger-fg);
+  font-size: 13px;
+}

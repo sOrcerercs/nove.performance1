@@ -1,0 +1,16 @@
+node_modules/
+.next/
+out/
+.env
+.env*.local
+.DS_Store
+*.tsbuildinfo
+.vercel
+coverage/
+.pglite/
+
+# Yerel dokümantasyon — repoya girmiyor
+README.md
+
+# Süreç dokümanları — repoya girmiyor
+docs/superpowers/

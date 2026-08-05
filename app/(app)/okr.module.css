@@ -1,0 +1,370 @@
+/* Department and objective screens — prototype `dept` and `objective` branches. */
+
+.screen {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.backLink {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--blue-600);
+}
+
+/* ---------- department header ---------- */
+
+.deptHeader {
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.deptHeaderMain {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.deptTitle {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 30px;
+  line-height: 38px;
+  font-weight: 700;
+  letter-spacing: -.02em;
+  color: var(--ink);
+}
+
+.deptEmoji {
+  font-size: 28px;
+  line-height: 1;
+}
+
+.headerMeta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.summaryCard {
+  flex: 0 0 320px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.summaryLabel {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+/* ---------- objective card ---------- */
+
+.objectiveList {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.cardHead {
+  padding: 24px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.cardMain {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.overline {
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.cardTitle {
+  align-self: flex-start;
+  font-size: 18px;
+  line-height: 26px;
+  font-weight: 600;
+  color: var(--ink);
+  text-align: left;
+}
+.cardTitle:hover { color: var(--blue-600); }
+
+.ownerRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.cardProgress {
+  flex: 0 0 260px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.toggle {
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--dur-fast) var(--ease);
+}
+.toggle:hover { background: var(--surface-alt); }
+
+.krPanel { border-top: 1px solid var(--border); }
+
+/* ---------- empty department ---------- */
+
+.empty {
+  background: var(--surface);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-lg);
+  padding: 48px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.emptyIcon { font-size: 28px; }
+.emptyText { font-size: 14px; color: var(--text-muted); }
+
+/* ---------- objective detail ---------- */
+
+.objHeader {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 24px;
+  align-items: start;
+}
+
+.objHeaderMain {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.objTitle {
+  margin: 0;
+  font-size: 30px;
+  line-height: 38px;
+  font-weight: 700;
+  letter-spacing: -.02em;
+  color: var(--ink);
+  max-width: 24ch;
+  text-wrap: pretty;
+}
+
+.objOwner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.progressCard {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.metric {
+  font-size: 32px;
+  line-height: 36px;
+  font-weight: 700;
+  letter-spacing: -.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.note { font-size: 12px; color: var(--text-muted); }
+
+.tableCard {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.tableCardHead {
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border);
+}
+
+.tableCardTitle {
+  margin: 0;
+  font-size: 18px;
+  line-height: 26px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+@media (max-width: 900px) {
+  .objHeader { grid-template-columns: minmax(0, 1fr); }
+  .summaryCard { flex: 1 1 100%; }
+  .cardProgress { flex: 1 1 100%; }
+}
+
+/* ---------- key result table ---------- */
+
+/* Available to assistive technology, absent from the visual design. */
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.tableScroll { overflow-x: auto; }
+
+.krTable {
+  width: 100%;
+  min-width: 860px;
+  border-collapse: collapse;
+}
+
+.krTable th {
+  background: var(--surface-alt);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 12px;
+  text-align: left;
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.krTable th:first-child { padding-left: 24px; }
+.krTable th:last-child { padding-right: 24px; }
+
+.numHead { text-align: right; }
+
+.colStart, .colTarget { width: 110px; }
+.colCurrent { width: 120px; }
+.colProgress { width: 210px; }
+.colConfidence { width: 160px; }
+
+.row {
+  height: 52px;
+  transition: background var(--dur-fast) var(--ease);
+}
+.rowCompact { height: 44px; }
+.row:hover { background: var(--blue-50); }
+
+.row td {
+  border-bottom: 1px solid var(--border);
+  padding: 6px 12px;
+  font-size: 14px;
+  color: var(--text);
+}
+.row td:first-child { padding-left: 24px; }
+.row td:last-child { padding-right: 24px; }
+.row:last-child td { border-bottom: none; }
+
+.krTitle {
+  max-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.num {
+  text-align: right;
+  font-size: 13px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.numStrong {
+  text-align: right;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Confidence always ships the written label next to the dot — colour alone
+   never carries the meaning (design.md §2.4). */
+.conf {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.confDot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: currentColor;
+  flex: 0 0 auto;
+}

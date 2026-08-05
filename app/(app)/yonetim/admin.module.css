@@ -1,0 +1,170 @@
+.h1 { font-size: 30px; line-height: 38px; font-weight: 700; margin-bottom: 4px; }
+.lead { color: var(--text-muted); margin-bottom: 24px; }
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  margin-bottom: 32px;
+}
+
+.cardHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border);
+}
+.cardTitle { font-size: 18px; line-height: 26px; font-weight: 600; }
+
+.table { width: 100%; border-collapse: collapse; }
+
+.th {
+  background: var(--surface-alt);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 24px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.thNum { text-align: right; }
+
+.row { border-bottom: 1px solid var(--border); }
+.row:last-child { border-bottom: none; }
+.row:hover { background: var(--blue-50); }
+
+.td { padding: 12px 24px; font-size: 14px; }
+.tdNum { text-align: right; font-variant-numeric: tabular-nums; }
+
+.userCell { display: flex; align-items: center; gap: 10px; }
+.userName { color: var(--ink); }
+.userEmail { color: var(--text-muted); font-size: 12px; }
+
+.select {
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 13px;
+}
+.select:disabled { opacity: .5; }
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  font-size: 12px;
+  font-weight: 500;
+}
+.dot { width: 8px; height: 8px; border-radius: var(--radius-full); background: currentColor; }
+
+.stateActive { background: var(--success-bg); color: var(--success-fg); }
+.stateInvited { background: var(--info-bg); color: var(--info-fg); }
+.statePassive { background: var(--neutral-bg); color: var(--neutral-fg); }
+.stateClosed { background: var(--neutral-bg); color: var(--neutral-fg); }
+.statePlanned { background: var(--warning-bg); color: var(--warning-fg); }
+
+.inviteBar { display: flex; gap: 8px; flex-wrap: wrap; padding: 16px 24px; background: var(--surface-alt); }
+.input {
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 13px;
+}
+.inputName { flex: 1; min-width: 140px; }
+.inputEmail { flex: 1.4; min-width: 180px; }
+
+.primary {
+  height: 36px;
+  padding: 0 14px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--blue-500);
+  color: #fff;
+  font-weight: 500;
+  cursor: pointer;
+  font-size: 13px;
+}
+.primary:hover:not(:disabled) { background: var(--blue-600); }
+.primary:disabled { opacity: .45; cursor: default; }
+
+.error {
+  margin: 0 24px 16px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--danger-bg);
+  color: var(--danger-fg);
+  font-size: 13px;
+}
+
+.errorTop {
+  margin-bottom: 20px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--danger-bg);
+  color: var(--danger-fg);
+  font-size: 13px;
+}
+
+.actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
+.linkBtn {
+  background: none;
+  border: none;
+  padding: 2px 0;
+  color: var(--blue-600);
+  cursor: pointer;
+  font-size: 12px;
+  text-decoration: underline;
+}
+.linkBtn:hover { color: var(--blue-700); }
+.linkBtn:disabled { opacity: .45; cursor: default; }
+
+.dangerBtn {
+  background: none;
+  border: none;
+  padding: 2px 0;
+  color: var(--danger-fg);
+  cursor: pointer;
+  font-size: 12px;
+  text-decoration: underline;
+}
+.dangerBtn:disabled { opacity: .45; cursor: default; }
+
+.resetRow { display: flex; gap: 8px; margin-top: 8px; align-items: center; }
+.resetRow .input { max-width: 240px; }
+
+.hintRow {
+  padding: 10px 24px 0;
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 18px;
+}
+.hintRow code { color: var(--text-secondary); }
+
+.editRow { display: flex; gap: 8px; align-items: center; }
+.editRow .input { height: 32px; font-size: 13px; }
+
+.confirmBox {
+  margin-top: 8px;
+  padding: 12px;
+  border: 1px solid var(--danger-fg);
+  border-radius: var(--radius-md);
+  background: var(--danger-bg);
+  max-width: 420px;
+}
+.confirmText { color: var(--danger-fg); font-size: 12px; line-height: 18px; }
+.confirmActions { display: flex; gap: 12px; margin-top: 10px; }

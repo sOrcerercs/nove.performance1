@@ -1,0 +1,443 @@
+'use client'
+
+import { useRouter } from 'next/navigation'
+import { useState, useTransition } from 'react'
+import { Avatar } from '@/components/ui/Avatar'
+import { useToast } from '@/components/ui/ToastProvider'
+import {
+  createPeriod,
+  createUser,
+  deleteUser,
+  setUserPassword,
+  setPeriodState,
+  updatePeriodDates,
+  setUserRole,
+  setUserState,
+} from '@/lib/actions/admin'
+import { canSignIn, type Role } from '@/lib/domain/types'
+import { tx } from '@/lib/i18n/strings'
+import { usePrefs } from '@/lib/prefs/PrefsProvider'
+import type { AdminVm } from '@/lib/queries/admin'
+import type { AssignablePerson } from '@/lib/queries/people'
+import { DepartmentsTable } from './departments-table'
+import styles from './admin.module.css'
+
+const ROLE_LABEL: Record<Role, string> = {
+  admin: 'Yönetici',
+  executive: 'Üst Yönetim',
+  staff: 'Personel',
+}
+
+/** İK/Yönetim only — there are no department-lead or team-member accounts. */
+const ROLES: Role[] = ['admin', 'executive', 'staff']
+
+const STATE_CLASS: Record<string, string | undefined> = {
+  active: styles.stateActive,
+  passive: styles.statePassive,
+  closed: styles.stateClosed,
+  planned: styles.statePlanned,
+}
+
+export function AdminTables({
+  vm,
+  currentUserId,
+  people,
+}: {
+  vm: AdminVm
+  currentUserId: string
+  people: AssignablePerson[]
+}) {
+  const { t, lang } = usePrefs()
+  const router = useRouter()
+  const toast = useToast()
+  const [pending, startTransition] = useTransition()
+
+  const [error, setError] = useState<string | null>(null)
+
+  // New user form
+  const [name, setName] = useState('')
+  const [email, setEmail] = useState('')
+  const [role, setRole] = useState<Role>('staff')
+  const [deptId, setDeptId] = useState<string>('')
+  const [password, setPassword] = useState('')
+
+  // New period form. Quarters only — see the note beside the form.
+  const [pCode, setPCode] = useState('')
+  const [pStart, setPStart] = useState('')
+  const [pEnd, setPEnd] = useState('')
+
+  // Password reset — which row is open
+  const [resetFor, setResetFor] = useState<string | null>(null)
+  const [resetPassword, setResetPassword] = useState('')
+
+  // Period date edit — which row is open, and its draft
+  const [dateFor, setDateFor] = useState<string | null>(null)
+  const [dStart, setDStart] = useState('')
+  const [dEnd, setDEnd] = useState('')
+
+  const refresh = () => startTransition(() => router.refresh())
+
+  const stateLabel = (s: string) =>
+    s === 'active' ? t('stateActive')
+    : s === 'passive' ? t('statePassive')
+    : s === 'closed' ? t('stateClosed')
+    : t('statePlanned')
+
+  async function run<T>(fn: () => Promise<{ ok: boolean; error?: string } & T>, okMsg: string) {
+    setError(null)
+    const result = await fn()
+    if (result.ok) {
+      toast(okMsg)
+      refresh()
+      return true
+    }
+    setError(result.error ?? 'İşlem başarısız.')
+    return false
+  }
+
+  async function onCreateUser() {
+    const ok = await run(
+      () => createUser({
+        name,
+        email,
+        role,
+        departmentId: deptId || null,
+        ...(canSignIn(role) ? { password } : {}),
+      }),
+      'Kullanıcı eklendi',
+    )
+    if (ok) { setName(''); setEmail(''); setPassword('') }
+  }
+
+  async function onCreatePeriod() {
+    const ok = await run(
+      () => createPeriod({ code: pCode, kind: 'quarter', startsOn: pStart, endsOn: pEnd }),
+      'Dönem eklendi',
+    )
+    if (ok) { setPCode(''); setPStart(''); setPEnd('') }
+  }
+
+  async function onResetPassword(userId: string) {
+    const ok = await run(
+      () => setUserPassword({ userId, password: resetPassword }),
+      'Parola güncellendi',
+    )
+    if (ok) { setResetFor(null); setResetPassword('') }
+  }
+
+  return (
+    <>
+      <h1 className={styles.h1}>{t('adminTitle')}</h1>
+      <p className={styles.lead}>{t('adminLead')}</p>
+
+      {error ? <p className={styles.errorTop} role="alert">{error}</p> : null}
+
+      {/* ------------------------------ users ------------------------------ */}
+      <section className={styles.card}>
+        <div className={styles.cardHead}>
+          <h2 className={styles.cardTitle}>{t('users')}</h2>
+          <span>{vm.users.length}</span>
+        </div>
+
+        <div className={styles.inviteBar}>
+          <input
+            className={`${styles.input} ${styles.inputName}`}
+            placeholder="Ad Soyad" aria-label="Ad Soyad"
+            value={name} onChange={(e) => setName(e.target.value)}
+          />
+          <input
+            className={`${styles.input} ${styles.inputEmail}`}
+            type="email" placeholder="ad.soyad@nove.group" aria-label="E-posta"
+            value={email} onChange={(e) => setEmail(e.target.value)}
+          />
+          <select
+            className={styles.select} aria-label={t('thRole')}
+            value={role} onChange={(e) => setRole(e.target.value as Role)}
+          >
+            {ROLES.map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
+          </select>
+          <select
+            className={styles.select} aria-label={t('thDept')}
+            value={deptId} onChange={(e) => setDeptId(e.target.value)}
+          >
+            <option value="">Bölüm —</option>
+            {vm.departments.map((d) => (
+              <option key={d.id} value={d.id}>{tx({ tr: d.nameTr, en: d.nameEn }, lang)}</option>
+            ))}
+          </select>
+          {/* Staff hold no credential, so no password field for them. */}
+          {canSignIn(role) ? (
+            <input
+              className={styles.input} type="password" autoComplete="new-password"
+              placeholder="Parola (en az 12 karakter)" aria-label="Parola"
+              value={password} onChange={(e) => setPassword(e.target.value)}
+            />
+          ) : null}
+          <button
+            type="button" className={styles.primary}
+            disabled={pending || name.trim() === '' || email.trim() === ''}
+            onClick={onCreateUser}
+          >
+            Ekle
+          </button>
+        </div>
+
+        <table className={styles.table}>
+          <thead>
+            <tr>
+              <th scope="col" className={styles.th}>{t('thUser')}</th>
+              <th scope="col" className={styles.th}>{t('thRole')}</th>
+              <th scope="col" className={styles.th}>{t('thDept')}</th>
+              <th scope="col" className={`${styles.th} ${styles.thNum}`}>{t('thKrOwned')}</th>
+              <th scope="col" className={styles.th}>{t('thStatus')}</th>
+              <th scope="col" className={styles.th}>{t('thAction')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {vm.users.map((u) => {
+              const isSelf = u.id === currentUserId
+              return (
+                <tr className={styles.row} key={u.id}>
+                  <td className={styles.td}>
+                    <span className={styles.userCell}>
+                      <Avatar name={u.name} />
+                      <span>
+                        <div className={styles.userName}>
+                          {u.name}{isSelf ? ' (sen)' : ''}
+                        </div>
+                        <div className={styles.userEmail}>{u.email}</div>
+                      </span>
+                    </span>
+                  </td>
+
+                  <td className={styles.td}>
+                    <select
+                      className={styles.select} value={u.role}
+                      aria-label={`${u.name} ${t('thRole')}`}
+                      // Changing your own role could lock you out of this screen.
+                      disabled={pending || isSelf}
+                      onChange={(e) =>
+                        run(() => setUserRole({ userId: u.id, role: e.target.value as Role }),
+                            'Rol güncellendi')
+                      }
+                    >
+                      {ROLES.map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
+                    </select>
+                  </td>
+
+                  <td className={styles.td}>
+                    {u.departmentId
+                      ? tx({ tr: u.departmentName, en: u.departmentNameEn }, lang)
+                      : '—'}
+                  </td>
+
+                  <td className={`${styles.td} ${styles.tdNum}`}>{u.krsOwned}</td>
+
+                  <td className={styles.td}>
+                    <span className={`${styles.pill} ${STATE_CLASS[u.state] ?? ''}`}>
+                      <span className={styles.dot} aria-hidden="true" />
+                      {stateLabel(u.state)}
+                    </span>
+                  </td>
+
+                  <td className={styles.td}>
+                    <div className={styles.actions}>
+                      {canSignIn(u.role) ? (
+                        <button
+                          type="button" className={styles.linkBtn} disabled={pending}
+                          onClick={() => {
+                            setResetFor(resetFor === u.id ? null : u.id)
+                            setResetPassword('')
+                          }}
+                        >
+                          Parola
+                        </button>
+                      ) : null}
+
+                      {!isSelf ? (
+                        <button
+                          type="button" className={styles.linkBtn} disabled={pending}
+                          onClick={() =>
+                            run(() => setUserState({
+                              userId: u.id,
+                              state: u.state === 'passive' ? 'active' : 'passive',
+                            }), u.state === 'passive' ? 'Aktifleştirildi' : 'Pasifleştirildi')
+                          }
+                        >
+                          {u.state === 'passive' ? 'Aktifleştir' : 'Pasifleştir'}
+                        </button>
+                      ) : null}
+
+                      {!isSelf ? (
+                        <button
+                          type="button" className={styles.dangerBtn} disabled={pending}
+                          onClick={() => run(() => deleteUser({ userId: u.id }), 'Kullanıcı silindi')}
+                        >
+                          Sil
+                        </button>
+                      ) : null}
+                    </div>
+
+                    {resetFor === u.id ? (
+                      <div className={styles.resetRow}>
+                        <input
+                          className={styles.input} type="password" autoComplete="new-password"
+                          placeholder="Yeni parola (en az 12 karakter)"
+                          aria-label={`${u.name} yeni parola`}
+                          value={resetPassword}
+                          onChange={(e) => setResetPassword(e.target.value)}
+                        />
+                        <button
+                          type="button" className={styles.primary}
+                          disabled={pending || resetPassword.length < 12}
+                          onClick={() => onResetPassword(u.id)}
+                        >
+                          Kaydet
+                        </button>
+                      </div>
+                    ) : null}
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </section>
+
+      <DepartmentsTable rows={vm.departmentRows} people={people} />
+
+      {/* ----------------------------- periods ----------------------------- */}
+      <section className={styles.card}>
+        <div className={styles.cardHead}>
+          <h2 className={styles.cardTitle}>{t('periods')}</h2>
+          <span>{vm.periods.length}</span>
+        </div>
+
+        <div className={styles.inviteBar}>
+          <input
+            className={styles.input}
+            placeholder="2027-Q1"
+            aria-label="Dönem kodu"
+            value={pCode} onChange={(e) => setPCode(e.target.value)}
+          />
+          <input
+            className={styles.input} type="date" aria-label="Başlangıç"
+            value={pStart} onChange={(e) => setPStart(e.target.value)}
+          />
+          <input
+            className={styles.input} type="date" aria-label="Bitiş"
+            value={pEnd} onChange={(e) => setPEnd(e.target.value)}
+          />
+          <button
+            type="button" className={styles.primary}
+            disabled={pending || !pCode || !pStart || !pEnd}
+            onClick={onCreatePeriod}
+          >
+            Ekle
+          </button>
+        </div>
+
+        <p className={styles.hintRow}>
+          Mali yıl <strong>Eylül</strong>'de başlar ve çeyrek etiketindeki yıl mali
+          yılın başladığı yıldır — <code>2026-Q1</code> = 1 Eylül – 30 Kasım 2026.
+          Bir dönemi <strong>{t('stateActive').toLowerCase()}</strong> yapmak diğer
+          aktif dönemi kapatır; uygulama tek bir açık döngüye göre açılır.
+        </p>
+
+        <table className={styles.table}>
+          <thead>
+            <tr>
+              <th scope="col" className={styles.th}>{t('period')}</th>
+              <th scope="col" className={styles.th}>{t('thStatus')}</th>
+              <th scope="col" className={styles.th}>Başlangıç</th>
+              <th scope="col" className={styles.th}>Bitiş</th>
+            </tr>
+          </thead>
+          <tbody>
+            {vm.periods.map((p) => (
+              <tr className={styles.row} key={p.id}>
+                <td className={styles.td}>{p.code}</td>
+                <td className={styles.td}>
+                  <select
+                    className={styles.select}
+                    value={p.state}
+                    aria-label={`${p.code} ${t('thStatus')}`}
+                    disabled={pending}
+                    onChange={(e) =>
+                      run(
+                        () => setPeriodState({
+                          periodId: p.id,
+                          state: e.target.value as 'active' | 'closed' | 'planned',
+                        }),
+                        'Dönem durumu güncellendi',
+                      )
+                    }
+                  >
+                    <option value="active">{t('stateActive')}</option>
+                    <option value="planned">{t('statePlanned')}</option>
+                    <option value="closed">{t('stateClosed')}</option>
+                  </select>
+                </td>
+                {dateFor === p.id ? (
+                  <>
+                    <td className={styles.td}>
+                      <input
+                        className={styles.input} type="date" aria-label="Başlangıç"
+                        value={dStart} onChange={(e) => setDStart(e.target.value)}
+                      />
+                    </td>
+                    <td className={styles.td}>
+                      <div className={styles.editRow}>
+                        <input
+                          className={styles.input} type="date" aria-label="Bitiş"
+                          value={dEnd} onChange={(e) => setDEnd(e.target.value)}
+                        />
+                        <button
+                          type="button" className={styles.linkBtn} disabled={pending}
+                          onClick={async () => {
+                            const done = await run(
+                              () => updatePeriodDates({ periodId: p.id, startsOn: dStart, endsOn: dEnd }),
+                              'Dönem tarihleri güncellendi',
+                            )
+                            if (done) setDateFor(null)
+                          }}
+                        >
+                          Kaydet
+                        </button>
+                        <button
+                          type="button" className={styles.linkBtn}
+                          onClick={() => setDateFor(null)} disabled={pending}
+                        >
+                          {t('cancel')}
+                        </button>
+                      </div>
+                    </td>
+                  </>
+                ) : (
+                  <>
+                    <td className={styles.td}>{p.startsOn}</td>
+                    <td className={styles.td}>
+                      <div className={styles.editRow}>
+                        <span>{p.endsOn}</span>
+                        <button
+                          type="button" className={styles.linkBtn} disabled={pending}
+                          onClick={() => {
+                            setDateFor(p.id)
+                            setDStart(p.startsOn)
+                            setDEnd(p.endsOn)
+                          }}
+                        >
+                          Tarihleri düzenle
+                        </button>
+                      </div>
+                    </td>
+                  </>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
+    </>
+  )
+}

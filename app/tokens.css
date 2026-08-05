@@ -1,0 +1,31 @@
+/* Nove PYS design tokens — copied verbatim from design.md §10.
+   Do not re-derive or rename these values; the design system is the source of truth. */
+:root {
+  --blue-50:#EBF2FE; --blue-100:#D6E4FE; --blue-200:#AECAFD; --blue-300:#7BA6FB;
+  --blue-400:#3E82F7; --blue-500:#0462F2; --blue-600:#0353D8; --blue-700:#0341A8;
+  --blue-800:#002A78; --blue-900:#001C52; --blue-950:#00061A;
+  --sky-400:#39B4F8; --sky-500:#069BF6;
+  --bg:#F7F9FC; --surface:#FFFFFF; --surface-alt:#F1F5F9;
+  --border:#E2E8F0; --border-strong:#CBD5E1;
+  --text-muted:#64748B; --text-secondary:#475569; --text:#1E293B; --ink:#0F172A;
+  --success-fg:#0B7350; --success-bg:#E7F6EF;
+  --warning-fg:#8A5A00; --warning-bg:#FDF3E2;
+  --danger-fg:#B42318;  --danger-bg:#FCEBEB;
+  --info-fg:#0353D8;    --info-bg:#EBF2FE;
+  --neutral-fg:#64748B; --neutral-bg:#F1F5F9;
+  --radius-sm:6px; --radius-md:10px; --radius-lg:14px; --radius-xl:20px; --radius-full:9999px;
+  --shadow-sm:0 1px 3px rgba(15,23,42,.08),0 1px 2px rgba(15,23,42,.04);
+  --shadow-md:0 4px 12px rgba(15,23,42,.08);
+  --shadow-lg:0 12px 28px rgba(15,23,42,.12);
+  --shadow-focus:0 0 0 3px rgba(4,98,242,.30);
+  --ease:cubic-bezier(.2,.8,.2,1); --dur-fast:120ms; --dur-base:200ms; --dur-slow:320ms;
+  --font-sans:"Inter",-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+}
+
+/* Tokens documented in design.md but not listed in §10's block. */
+:root {
+  --shadow-xs:0 1px 2px rgba(15,23,42,.05);
+  --hero-gradient:linear-gradient(160deg,#00061A 0%,#002A78 45%,#0462F2 85%,#069BF6 115%);
+  --sidebar-width:260px;
+  --content-max:1280px;
+}

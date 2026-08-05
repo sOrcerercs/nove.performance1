@@ -1,0 +1,180 @@
+/* Hand-written SVG charts — no chart library (design.md §2.2).
+   Every colour comes from tokens.css; nothing here hard-codes a hex value. */
+
+.svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* The trend line needs its area gradient to bleed past the plot box. */
+.svgOverflow { overflow: visible; }
+
+/* --- shared axis furniture --- */
+.gridLine {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+
+.axisLabel {
+  fill: var(--text-muted);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Months that already have a reading vs. months still ahead. */
+.tickPast {
+  fill: var(--text-secondary);
+  font-size: 10px;
+}
+.tickFuture {
+  fill: var(--border-strong);
+  font-size: 10px;
+}
+
+/* --- trend chart --- */
+.paceLine {
+  stroke: var(--ink);
+  stroke-width: 1.5;
+  stroke-dasharray: 5 5;
+  opacity: .55;
+  fill: none;
+}
+
+.actualLine {
+  fill: none;
+  stroke: var(--blue-500);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.actualDot {
+  fill: var(--surface);
+  stroke: var(--blue-500);
+  stroke-width: 2.5;
+}
+
+.areaTop { stop-color: var(--blue-500); stop-opacity: .18; }
+.areaBottom { stop-color: var(--blue-500); stop-opacity: 0; }
+
+/* --- bar chart --- */
+.barTrack { fill: var(--surface-alt); }
+
+.barEmoji { font-size: 14px; }
+
+.barName {
+  fill: var(--text-secondary);
+  font-size: 12px;
+}
+
+.barValue {
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.targetMark {
+  stroke: var(--ink);
+  stroke-width: 1;
+  stroke-dasharray: 4 4;
+  opacity: .35;
+}
+
+/* --- donut chart --- */
+.donutTrack {
+  fill: none;
+  stroke: var(--surface-alt);
+}
+
+.donutArc {
+  fill: none;
+  stroke-linecap: butt;
+  transition: stroke-dasharray var(--dur-slow) var(--ease);
+}
+
+.donutTotal {
+  fill: var(--ink);
+  font-size: 26px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.donutCaption {
+  fill: var(--text-muted);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+/* --- legends (shared by trend and donut) --- */
+.legend {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+
+.legendItem {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.swatchLine {
+  width: 14px;
+  height: 3px;
+  border-radius: var(--radius-full);
+  background: var(--blue-500);
+  flex: 0 0 auto;
+}
+
+.swatchDashed {
+  width: 14px;
+  height: 0;
+  border-top: 2px dashed var(--ink);
+  flex: 0 0 auto;
+}
+
+.donutLayout {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.donutFigure { flex: 0 0 148px; }
+
+.statusLegend {
+  flex: 1;
+  min-width: 180px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+}
+
+.statusRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.statusDot {
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-full);
+  flex: 0 0 auto;
+}
+
+.statusName { flex: 1; }
+
+.statusCount {
+  font-weight: 600;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}

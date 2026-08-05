@@ -1,0 +1,153 @@
+.wrap { max-width: 720px; }
+
+.lead { color: var(--text-muted); margin-top: 8px; }
+
+.steps { display: flex; gap: 8px; margin: 24px 0; }
+
+.step {
+  flex: 1;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  background: var(--surface-alt);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+.stepActive { background: var(--blue-50); color: var(--blue-700); }
+.stepDone { background: var(--success-bg); color: var(--success-fg); }
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  box-shadow: var(--shadow-sm);
+}
+
+.field { margin-bottom: 20px; }
+.label {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+.input, .select {
+  width: 100%;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+}
+.input:focus, .select:focus {
+  outline: none;
+  border-color: var(--blue-500);
+  box-shadow: var(--shadow-focus);
+}
+
+.row { display: flex; gap: 12px; }
+.row > * { flex: 1; }
+
+.hint { margin-top: 6px; font-size: 12px; }
+.hintOk { color: var(--success-fg); }
+.hintWarn { color: var(--warning-fg); }
+
+.krCard {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  margin-bottom: 12px;
+  background: var(--surface);
+}
+
+.krHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.krIndex {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.remove {
+  background: none;
+  border: none;
+  color: var(--danger-fg);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 4px 6px;
+  border-radius: var(--radius-sm);
+}
+.remove:hover { background: var(--danger-bg); }
+.remove:disabled { opacity: .4; cursor: default; }
+
+.addKr {
+  width: 100%;
+  height: 40px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--blue-600);
+  font-weight: 500;
+  cursor: pointer;
+}
+.addKr:hover { background: var(--blue-50); }
+.addKr:disabled { opacity: .45; cursor: default; }
+
+.countHint { margin-top: 8px; font-size: 12px; color: var(--text-muted); }
+
+.footer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 24px;
+}
+.footerSpacer { flex: 1; }
+
+.validation { font-size: 13px; }
+.validationOk { color: var(--success-fg); }
+.validationMissing { color: var(--text-muted); }
+
+.primary {
+  height: 40px;
+  padding: 0 16px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--blue-500);
+  color: #fff;
+  font-weight: 500;
+  cursor: pointer;
+}
+.primary:hover:not(:disabled) { background: var(--blue-600); }
+.primary:disabled { opacity: .45; cursor: default; }
+
+.secondary {
+  height: 40px;
+  padding: 0 16px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--blue-600);
+  font-weight: 500;
+  cursor: pointer;
+}
+.secondary:hover { background: var(--surface-alt); }
+
+.error {
+  margin-top: 16px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--danger-bg);
+  color: var(--danger-fg);
+  font-size: 13px;
+}

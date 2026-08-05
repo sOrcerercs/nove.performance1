@@ -1,0 +1,49 @@
+{
+  "name": "nove-pys",
+  "version": "0.1.0",
+  "description": "",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "dev": "next dev -p 3001",
+    "build": "next build",
+    "start": "next start",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "seed": "tsx --env-file-if-exists=.env.local scripts/seed.ts",
+    "unlock": "tsx --env-file-if-exists=.env.local scripts/unlock.ts",
+    "set-password": "tsx --env-file-if-exists=.env.local scripts/set-password.ts",
+    "supabase:rls": "tsx --env-file-if-exists=.env.local scripts/supabase-rls.ts",
+    "db:migrate": "node --env-file-if-exists=.env.local -e \"if(!process.env.DATABASE_URL){console.error('\\nDATABASE_URL yok. .env.local dosyasina Supabase Session pooler dizesini (port 5432) yazin.\\n');process.exit(1)}\" && node --env-file-if-exists=.env.local node_modules/drizzle-kit/bin.cjs migrate"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "@electric-sql/pglite": "^0.5.4",
+    "bcryptjs": "^3.0.3",
+    "drizzle-orm": "^0.45.2",
+    "next": "^15.5.22",
+    "next-auth": "^5.0.0-beta.32",
+    "postgres": "^3.4.9",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@testing-library/react": "^16.3.2",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/node": "^26.1.2",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "@vitejs/plugin-react": "^6.0.5",
+    "drizzle-kit": "^0.31.10",
+    "jsdom": "^29.1.1",
+    "tsx": "^4.23.4",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.10"
+  },
+  "private": true
+}
