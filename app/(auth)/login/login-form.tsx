@@ -18,7 +18,14 @@ export function LoginForm({ showSeedHint }: { showSeedHint: boolean }) {
     setError(null)
 
     try {
-      const result = await signInWithPassword({ email, password })
+      // The action can stall when the database connection hangs server-side;
+      // racing a timeout guarantees the button never spins forever.
+      const result = await Promise.race([
+        signInWithPassword({ email, password }),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('timeout')), 20_000),
+        ),
+      ])
       if (result.ok) {
         // Full refresh so the server layout re-reads the new session cookie.
         router.replace('/')
@@ -30,7 +37,7 @@ export function LoginForm({ showSeedHint }: { showSeedHint: boolean }) {
       // The action threw before producing a result — a misconfigured or
       // unreachable server, not bad credentials. Without this catch the
       // button would stay on "Giriş yapılıyor…" forever.
-      setError('Sunucu hatası: giriş şu anda yapılamıyor. Lütfen daha sonra tekrar deneyin.')
+      setError('Sunucuya ulaşılamadı veya yanıt gecikti. Lütfen tekrar deneyin.')
     }
     setPending(false)
   }

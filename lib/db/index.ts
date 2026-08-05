@@ -43,8 +43,18 @@ async function connect(): Promise<Db> {
 
   if (url) {
     // `max: 1` keeps a serverless function from opening a pool per invocation;
-    // Neon/Vercel do the pooling upstream.
-    const client = postgres(url, { max: 1, prepare: false })
+    // Neon/Vercel do the pooling upstream. The timeouts matter on serverless:
+    // a warm function that reuses a socket the upstream pooler already killed
+    // would otherwise stall a query forever — `idle_timeout` closes our side
+    // first, and `connect_timeout` turns an unreachable database into an error
+    // in seconds instead of a hung request.
+    const client = postgres(url, {
+      max: 1,
+      prepare: false,
+      idle_timeout: 20,
+      max_lifetime: 60 * 5,
+      connect_timeout: 10,
+    })
     return drizzlePg(client, { schema }) as unknown as Db
   }
 

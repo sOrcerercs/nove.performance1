@@ -31,22 +31,28 @@ export async function signInWithPassword(input: {
 
     // The throttle is enforced inside authorize(); it is read back here only to
     // explain the refusal. Telling a locked-out address that it is locked is
-    // safe because unknown addresses are throttled identically.
-    const db = await getDb()
-    const state = await getThrottleState(db, input.email)
+    // safe because unknown addresses are throttled identically. The read is
+    // best-effort: if the database flakes here, the sign-in already failed —
+    // answer with the generic refusal instead of surfacing a second error.
+    try {
+      const db = await getDb()
+      const state = await getThrottleState(db, input.email)
 
-    if (state.locked) {
-      return {
-        ok: false,
-        error: `Çok fazla başarısız deneme. ${state.retryAfterMinutes} dakika sonra tekrar dene.`,
+      if (state.locked) {
+        return {
+          ok: false,
+          error: `Çok fazla başarısız deneme. ${state.retryAfterMinutes} dakika sonra tekrar dene.`,
+        }
       }
+
+      // Deliberately vague otherwise: distinguishing "no such user" from "wrong
+      // password" would let anyone enumerate valid company addresses.
+      const suffix =
+        state.remaining <= 2 ? ` ${state.remaining} deneme hakkın kaldı.` : ''
+
+      return { ok: false, error: `E-posta veya parola hatalı.${suffix}` }
+    } catch {
+      return { ok: false, error: 'E-posta veya parola hatalı.' }
     }
-
-    // Deliberately vague otherwise: distinguishing "no such user" from "wrong
-    // password" would let anyone enumerate valid company addresses.
-    const suffix =
-      state.remaining <= 2 ? ` ${state.remaining} deneme hakkın kaldı.` : ''
-
-    return { ok: false, error: `E-posta veya parola hatalı.${suffix}` }
   }
 }
