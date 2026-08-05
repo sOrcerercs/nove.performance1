@@ -1,4 +1,5 @@
 import { PGlite } from '@electric-sql/pglite'
+import { sql as sqlTag } from 'drizzle-orm'
 import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core'
 import { drizzle as drizzlePglite } from 'drizzle-orm/pglite'
 import { migrate as migratePglite } from 'drizzle-orm/pglite/migrator'
@@ -71,9 +72,46 @@ async function connect(): Promise<Db> {
 // directory and eventually lock it.
 const globalForDb = globalThis as unknown as { __novePysDb?: Promise<Db> }
 
-export function getDb(): Promise<Db> {
-  globalForDb.__novePysDb ??= connect()
-  return globalForDb.__novePysDb
+const HEALTH_CHECK_MS = 2_000
+
+/**
+ * A warm serverless instance can hold a connection whose socket the upstream
+ * pooler silently killed; queries on it then wait forever, and with `max: 1`
+ * that wedges every request the instance serves from then on. Probing the
+ * cached connection before handing it out turns that permanent hang into a
+ * two-second reconnect.
+ */
+async function healthy(dbPromise: Promise<Db>): Promise<Db> {
+  const db = await dbPromise
+  await Promise.race([
+    db.execute(sqlTag`select 1`),
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('db health check timed out')), HEALTH_CHECK_MS),
+    ),
+  ])
+  return db
+}
+
+export async function getDb(): Promise<Db> {
+  if (globalForDb.__novePysDb) {
+    try {
+      return await healthy(globalForDb.__novePysDb)
+    } catch {
+      // Wedged or dead — drop it and connect fresh. The stale postgres client
+      // is abandoned to its idle_timeout; ending it here could break a query
+      // that is genuinely just slow.
+      globalForDb.__novePysDb = undefined
+    }
+  }
+  globalForDb.__novePysDb = connect()
+  try {
+    return await globalForDb.__novePysDb
+  } catch (err) {
+    // A failed connect must not be memoised, or every later request inherits
+    // the same rejection.
+    globalForDb.__novePysDb = undefined
+    throw err
+  }
 }
 
 export * from './schema'
