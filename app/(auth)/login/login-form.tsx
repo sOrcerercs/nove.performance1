@@ -17,15 +17,22 @@ export function LoginForm({ showSeedHint }: { showSeedHint: boolean }) {
     setPending(true)
     setError(null)
 
-    const result = await signInWithPassword({ email, password })
-    if (result.ok) {
-      // Full refresh so the server layout re-reads the new session cookie.
-      router.replace('/')
-      router.refresh()
-    } else {
+    try {
+      const result = await signInWithPassword({ email, password })
+      if (result.ok) {
+        // Full refresh so the server layout re-reads the new session cookie.
+        router.replace('/')
+        router.refresh()
+        return
+      }
       setError(result.error)
-      setPending(false)
+    } catch {
+      // The action threw before producing a result — a misconfigured or
+      // unreachable server, not bad credentials. Without this catch the
+      // button would stay on "Giriş yapılıyor…" forever.
+      setError('Sunucu hatası: giriş şu anda yapılamıyor. Lütfen daha sonra tekrar deneyin.')
     }
+    setPending(false)
   }
 
   return (
