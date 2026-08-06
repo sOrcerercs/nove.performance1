@@ -1,7 +1,6 @@
-import { asc, eq } from 'drizzle-orm'
 import type { Db } from '@/lib/db'
-import { departments, keyResults, objectives, periods, users } from '@/lib/db/schema'
 import type { Confidence } from '@/lib/domain/types'
+import { allDepartments, allKeyResults, allObjectives, allPeriods, allUsers } from './tables'
 
 export interface KrNode {
   id: string
@@ -50,25 +49,28 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000
 /**
  * Loads the whole OKR tree for one period.
  *
- * Deliberately four flat selects assembled in memory rather than a join or SQL
+ * Deliberately flat reads assembled in memory rather than a join or SQL
  * aggregation: the dataset is 25 key results, and keeping the shaping in
  * TypeScript means progress is computed in exactly one place (`lib/domain`)
- * instead of being duplicated in SQL.
+ * instead of being duplicated in SQL. The reads go through `./tables`, so the
+ * layout and the page share them instead of each paying for its own copy.
  */
 export async function loadTree(
   db: Db,
   periodCode: string,
 ): Promise<{ period: PeriodInfo | null; depts: DeptNode[] }> {
-  const [period] = await db.select().from(periods).where(eq(periods.code, periodCode)).limit(1)
-  if (!period) return { period: null, depts: [] }
-
-  const [deptRows, userRows, objRows, krRows] = await Promise.all([
-    db.select().from(departments).orderBy(asc(departments.sortOrder)),
-    db.select().from(users),
-    db.select().from(objectives).where(eq(objectives.periodId, period.id)).orderBy(asc(objectives.code)),
-    db.select().from(keyResults).orderBy(asc(keyResults.id)),
+  const [periodRows, deptRows, userRows, allObjRows, krRows] = await Promise.all([
+    allPeriods(db),
+    allDepartments(db),
+    allUsers(db),
+    allObjectives(db),
+    allKeyResults(db),
   ])
 
+  const period = periodRows.find((p) => p.code === periodCode)
+  if (!period) return { period: null, depts: [] }
+
+  const objRows = allObjRows.filter((o) => o.periodId === period.id)
   const nameById = new Map(userRows.map((u) => [u.id, u.name]))
   const now = Date.now()
 
