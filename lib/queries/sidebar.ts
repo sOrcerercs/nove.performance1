@@ -1,7 +1,6 @@
-import { asc } from 'drizzle-orm'
 import type { Db } from '@/lib/db'
-import { departments, keyResults, objectives, periods } from '@/lib/db/schema'
 import { deptPct } from '@/lib/domain/progress'
+import { allDepartments, allKeyResults, allObjectives, allPeriods } from './tables'
 
 export interface SidebarDeptInfo {
   slug: string
@@ -22,15 +21,16 @@ export interface SidebarData {
  * Next does not pass `searchParams` to layouts, so the sidebar cannot know
  * which period the page is showing. Rather than let it disagree with the
  * content, it receives every period's numbers and the client picks by URL.
- * The whole dataset is a few dozen rows, so this is four flat selects, not
- * one query per period.
+ * The whole dataset is a few dozen rows, so this is four flat reads, not one
+ * query per period — and they are the same reads the page itself needs, so
+ * `./tables` serves both from one roundtrip each.
  */
 export async function getSidebarData(db: Db): Promise<SidebarData> {
   const [deptRows, periodRows, objRows, krRows] = await Promise.all([
-    db.select().from(departments).orderBy(asc(departments.sortOrder)),
-    db.select().from(periods),
-    db.select().from(objectives),
-    db.select().from(keyResults),
+    allDepartments(db),
+    allPeriods(db),
+    allObjectives(db),
+    allKeyResults(db),
   ])
 
   const krsByObjective = new Map<string, { start: number; current: number; target: number }[]>()

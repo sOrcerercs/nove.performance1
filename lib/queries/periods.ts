@@ -1,7 +1,6 @@
-import { asc } from 'drizzle-orm'
 import type { Db } from '@/lib/db'
-import { periods } from '@/lib/db/schema'
 import type { PeriodKind } from '@/lib/domain/types'
+import { allPeriods } from './tables'
 
 export interface PeriodOption {
   id: string
@@ -30,7 +29,7 @@ export async function resolvePeriod(
   db: Db,
   requested: string | undefined,
 ): Promise<PeriodSelection | null> {
-  const rows = await db.select().from(periods).orderBy(asc(periods.startsOn))
+  const rows = await allPeriods(db)
   if (rows.length === 0) return null
 
   const all: PeriodOption[] = rows.map((p) => ({
