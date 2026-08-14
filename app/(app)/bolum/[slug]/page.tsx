@@ -1,9 +1,10 @@
 import { notFound } from 'next/navigation'
 import { DepartmentScreen } from '@/components/okr/ObjectiveCard'
 import { requireUser } from '@/lib/auth/session'
+import { asOfCutoff, todayInIstanbul } from '@/lib/domain/dates'
 import { getDb } from '@/lib/db'
-import { getDepartment } from '@/lib/queries/department'
-import { periodParam, resolvePeriod } from '@/lib/queries/periods'
+import { getDepartmentForPage } from '@/lib/queries/department'
+import { resolveRange } from '@/lib/queries/range'
 
 export default async function DepartmentPage({
   params,
@@ -16,11 +17,22 @@ export default async function DepartmentPage({
   const { slug } = await params
 
   const db = await getDb()
-  const selection = await resolvePeriod(db, periodParam(await searchParams))
-  if (!selection) notFound()
+  const selection = await resolveRange(db, await searchParams)
+  const now = new Date()
+  // Never past today — see `asOfCutoff`.
+  const asOf = asOfCutoff(selection.range.to, now)
+  // A range matching zero periods (e.g. the "previous fiscal year" preset on a
+  // database with no data that far back) must still render a department the
+  // sidebar is listing — only a genuinely unknown slug gets notFound().
+  const result = await getDepartmentForPage(db, slug, selection.periods.map((p) => p.id), asOf)
+  if (result.kind === 'not-found') notFound()
 
-  const dept = await getDepartment(db, slug, selection.current.code)
-  if (!dept) notFound()
-
-  return <DepartmentScreen dept={dept} periods={selection.all} activePeriod={selection.current.code} />
+  return (
+    <DepartmentScreen
+      dept={result.dept}
+      selection={selection}
+      asOf={asOf}
+      today={todayInIstanbul(now)}
+    />
+  )
 }

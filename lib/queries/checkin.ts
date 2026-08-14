@@ -28,9 +28,9 @@ export interface CheckinCandidate {
 export async function getCheckinCandidates(
   db: Db,
   user: SessionUser,
-  periodCode: string,
+  periodIds: readonly string[],
 ): Promise<CheckinCandidate[]> {
-  const { depts } = await loadTree(db, periodCode)
+  const { depts } = await loadTree(db, periodIds)
 
   return allKrs(depts)
     .filter(({ dept, kr }) =>

@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useMemo, useState } from 'react'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import { StatusBadge } from '@/components/ui/StatusBadge'
-import { formatValue } from '@/lib/domain/format'
+import { formatAsOf, formatValue } from '@/lib/domain/format'
 import { tx, type StringKey } from '@/lib/i18n/strings'
 import { usePrefs } from '@/lib/prefs/PrefsProvider'
 import {
@@ -24,7 +24,17 @@ const COLUMNS: { key: ReportSortKey; label: StringKey; numeric: boolean }[] = [
   { key: 'status', label: 'thStatus', numeric: false },
 ]
 
-export function ReportTable({ vm }: { vm: ReportVm }) {
+export function ReportTable({
+  vm,
+  asOf,
+  today,
+}: {
+  vm: ReportVm
+  /** The range's end. Produced server-side, never `new Date()` on the client. */
+  asOf: string
+  /** Produced via `todayInIstanbul(new Date())` on the server. */
+  today: string
+}) {
   const { t, lang } = usePrefs()
   const [sortKey, setSortKey] = useState<ReportSortKey>('pct')
   const [direction, setDirection] = useState<SortDirection>('desc')
@@ -47,7 +57,10 @@ export function ReportTable({ vm }: { vm: ReportVm }) {
   return (
     <>
       <h1 className={styles.h1}>{t('reportTitle')}</h1>
-      <p className={styles.lead}>{t('clickToSort')}</p>
+      <p className={styles.lead}>
+        {t('clickToSort')}
+        {asOf < today ? ` · ${formatAsOf(asOf, lang)}` : ''}
+      </p>
 
       <section className={styles.card}>
         <div className={styles.cardHead}>

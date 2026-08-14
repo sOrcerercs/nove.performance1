@@ -6,7 +6,20 @@
   margin-bottom: 24px;
 }
 
+.headerTitle { display: flex; flex-direction: column; gap: 4px; }
 .h1 { font-size: 30px; line-height: 38px; font-weight: 700; }
+
+/*
+ * The cutoff phrase and measured-KR counter used to live inside `.hero`,
+ * which sits on a dark gradient — but that only rendered them on the "hero"
+ * layout variant, silently hiding both markers under "cockpit"/"focus" even
+ * though those layouts are just as cutoff-filtered. They now live here, in
+ * the page header all three layouts share, which sits directly on the page
+ * background (`--bg`, light) like `.variantLabel` two elements over — so
+ * `--text-muted` is the correct token for this surface, not the near-white
+ * `rgba` the dark hero would have needed.
+ */
+.asOf, .measured { font-size: 12px; color: var(--text-muted); }
 
 .variantSwitch { display: flex; align-items: center; gap: 8px; }
 .variantLabel {

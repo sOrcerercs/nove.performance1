@@ -1,10 +1,5 @@
-import type { Confidence, PeriodKind, Role } from '@/lib/domain/types'
-
-/**
- * The prototype's data, extracted from `Component.seed()` rather than retyped,
- * so every start/current/target survives the port unchanged. Verified by
- * lib/db/__tests__/seed.test.ts: company progress must come out at 51%.
- */
+import type { Confidence, PeriodKind, Role, RollupRule } from '@/lib/domain/types'
+import { fiscalYearOf, fiscalYearRange } from '@/lib/domain/fiscal'
 
 export interface SeedKr {
   id: string
@@ -17,6 +12,7 @@ export interface SeedKr {
   owner: string
   /** Days since the last update in the prototype; becomes the initial updatedAt. */
   updated: number
+  rollup: RollupRule
 }
 
 export interface SeedObjective {
@@ -52,267 +48,449 @@ export interface SeedPeriod {
   endsOn: string
 }
 
-/* ------------------------------------------------------------------ *
- * Mali takvim
- *
- * Nove'un mali yılı **Eylül'de** başlar ve çeyrek etiketindeki yıl, mali yılın
- * *başladığı* yıldır. Yani `2026-Q1` = 1 Eylül 2026 – 30 Kasım 2026.
- *
- *   Q1  Eylül   – Kasım
- *   Q2  Aralık  – Şubat      (yıl atlar)
- *   Q3  Mart    – Mayıs
- *   Q4  Haziran – Ağustos
- * ------------------------------------------------------------------ */
-
-/** Mali yılın başladığı ay (1 = Ocak). */
-export const FISCAL_START_MONTH = 9
-
-const iso = (d: Date): string => d.toISOString().slice(0, 10)
-
-/** Bir tarihin hangi mali yıla düştüğü. Eylül öncesi bir önceki yıla sayılır. */
-export function fiscalYearOf(date: Date): number {
-  return date.getUTCMonth() + 1 >= FISCAL_START_MONTH
-    ? date.getUTCFullYear()
-    : date.getUTCFullYear() - 1
-}
-
 /**
- * Bir mali çeyreğin tarih aralığı.
+ * Three fiscal years: last, current and next. The company runs annual OKRs — the
+ * Excel workbook this data comes from covers 1 September 2025 to 31 August 2026 —
+ * so the period IS the fiscal year, not a quarter within it.
  *
- * Ay taşması `Date.UTC` tarafından çözülür (ay 11 = Aralık, 12 = gelecek Ocak),
- * bitiş günü de "sonraki ayın 0. günü" ile bulunur — böylece Şubat ve artık
- * yıllar elle ay uzunluğu tablosu tutmadan doğru çıkar.
- */
-export function fiscalQuarterRange(
-  fiscalYear: number,
-  quarter: 1 | 2 | 3 | 4,
-): { startsOn: string; endsOn: string } {
-  const startMonthIndex = FISCAL_START_MONTH - 1 + 3 * (quarter - 1)
-  return {
-    startsOn: iso(new Date(Date.UTC(fiscalYear, startMonthIndex, 1))),
-    endsOn: iso(new Date(Date.UTC(fiscalYear, startMonthIndex + 3, 0))),
-  }
-}
-
-/**
- * Üç mali yıl: geçen, içinde bulunulan ve gelecek. Geçmiş çeyrekler İK'nın
- * geriye dönük veri girmesi, gelecek olanlar planlama için.
- *
- * Durum gerçek tarihten türetilir — sabit bir "bugün" gömmek, seed başka bir
- * yılda çalıştırıldığında yanlış çeyreği açık gösterirdi.
+ * State is derived from the real date rather than a hard-coded "today": seeding
+ * in a different year would otherwise mark the wrong year open.
  */
 function buildPeriods(today: Date = new Date()): SeedPeriod[] {
-  const currentFy = fiscalYearOf(today)
-  const stamp = iso(today)
-  const out: SeedPeriod[] = []
+  const stamp = today.toISOString().slice(0, 10)
+  const currentFy = fiscalYearOf(stamp)
 
-  for (const fy of [currentFy - 1, currentFy, currentFy + 1]) {
-    for (const q of [1, 2, 3, 4] as const) {
-      const { startsOn, endsOn } = fiscalQuarterRange(fy, q)
-      out.push({
-        id: `p-${fy}-q${q}`,
-        code: `${fy}-Q${q}`,
-        kind: 'quarter',
-        state: endsOn < stamp ? 'closed' : startsOn > stamp ? 'planned' : 'active',
-        startsOn,
-        endsOn,
-      })
+  return [currentFy - 1, currentFy, currentFy + 1].map((fy) => {
+    const { startsOn, endsOn } = fiscalYearRange(fy)
+    return {
+      id: `p-${fy}-fy`,
+      code: `${fy}-FY`,
+      kind: 'year' as const,
+      state: endsOn < stamp ? ('closed' as const) : startsOn > stamp ? ('planned' as const) : ('active' as const),
+      startsOn,
+      endsOn,
     }
-  }
-
-  return out
+  })
 }
 
-/** Bugünü içeren çeyrek — prototipin devam eden işi buraya bağlanır. */
-function activeQuarterId(periods: SeedPeriod[]): string {
+/** Bugünü içeren mali yıl — prototipin devam eden işi buraya bağlanır. */
+function activePeriodId(periods: SeedPeriod[]): string {
   const active = periods.find((p) => p.state === 'active')
-  if (!active) throw new Error('Bugünü içeren çeyrek bulunamadı — mali takvim hesabı bozuk.')
+  if (!active) throw new Error('Bugünü içeren mali yıl bulunamadı — takvim hesabı bozuk.')
   return active.id
 }
 
 export const SEED_PERIODS: SeedPeriod[] = buildPeriods()
 
-/** The prototype's in-progress work belongs to whichever quarter is open now. */
-export const SEED_OBJECTIVE_PERIOD_ID = activeQuarterId(SEED_PERIODS)
+/** The prototype's in-progress work belongs to whichever fiscal year is open now. */
+export const SEED_OBJECTIVE_PERIOD_ID = activePeriodId(SEED_PERIODS)
 
-/** Same quarter, by code. Nothing should hard-code a quarter label. */
+/** Same fiscal year, by code. Nothing should hard-code a period label. */
 export const SEED_OBJECTIVE_PERIOD_CODE =
   SEED_PERIODS.find((p) => p.id === SEED_OBJECTIVE_PERIOD_ID)?.code ?? ''
 
-/** A quarter that has already ended — used for back-filling history. */
+/** A fiscal year that has already ended — used for back-filling history. */
 export const SEED_CLOSED_PERIOD_CODE =
   [...SEED_PERIODS].reverse().find((p) => p.state === 'closed')?.code ?? ''
 
+/**
+ * The three real accounts. The prototype's 18 demo people are gone — this is a
+ * live system now, and a personnel list nobody recognises is worse than none.
+ *
+ * All three are admins: the system is still being set up, and Bahadır needs to
+ * enter data while Kağan and Oğuzhan configure it.
+ */
 export const SEED_USERS: SeedUser[] = [
-  { id: "u-deniz.aksoy", name: "Deniz Aksoy", email: "deniz.aksoy@nove.group", role: "staff", departmentId: "pazarlama" },
-  { id: "u-berk.ucar", name: "Berk Uçar", email: "berk.ucar@nove.group", role: "staff", departmentId: "pazarlama" },
-  { id: "u-selin.ates", name: "Selin Ateş", email: "selin.ates@nove.group", role: "staff", departmentId: "pazarlama" },
-  { id: "u-murat.sen", name: "Murat Şen", email: "murat.sen@nove.group", role: "staff", departmentId: "saha" },
-  { id: "u-gizem.kara", name: "Gizem Kara", email: "gizem.kara@nove.group", role: "staff", departmentId: "saha" },
-  { id: "u-onur.bal", name: "Onur Bal", email: "onur.bal@nove.group", role: "staff", departmentId: "saha" },
-  { id: "u-aylin.demir", name: "Aylin Demir", email: "aylin.demir@nove.group", role: "staff", departmentId: "kalite" },
-  { id: "u-cem.yildiz", name: "Cem Yıldız", email: "cem.yildiz@nove.group", role: "staff", departmentId: "kalite" },
-  { id: "u-kerem.polat", name: "Kerem Polat", email: "kerem.polat@nove.group", role: "staff", departmentId: "finans" },
-  { id: "u-ece.tan", name: "Ece Tan", email: "ece.tan@nove.group", role: "staff", departmentId: "finans" },
-  { id: "u-elif.cinar", name: "Elif Çınar", email: "elif.cinar@nove.group", role: "admin", departmentId: "ik" },
-  { id: "u-nazli.er", name: "Nazlı Er", email: "nazli.er@nove.group", role: "admin", departmentId: "ik" },
-  { id: "u-baris.koc", name: "Barış Koç", email: "baris.koc@nove.group", role: "staff", departmentId: "sdr" },
-  { id: "u-tuna.aydin", name: "Tuna Aydın", email: "tuna.aydin@nove.group", role: "staff", departmentId: "sdr" },
-  { id: "u-hakan.yalin", name: "Dr. Hakan Yalın", email: "hakan.yalin@nove.group", role: "staff", departmentId: "medikal" },
-  { id: "u-sena.ok", name: "Dr. Sena Ok", email: "sena.ok@nove.group", role: "staff", departmentId: "medikal" },
-  { id: "u-sibel.ari", name: "Sibel Arı", email: "sibel.ari@nove.group", role: "staff", departmentId: "ofis" },
-  { id: "u-genel.mudurluk", name: "Genel Müdürlük", email: "yonetici@nove.group", role: "executive", departmentId: null },
+  { id: "u-kagan.ozturk", name: "Kağan Öztürk", email: "kagan.ozturk@nove.group", role: "admin", departmentId: null },
+  { id: "u-oguzhan.kizilcan", name: "Oğuzhan Kızılcan", email: "oguzhan.kizilcan@nove.group", role: "admin", departmentId: null },
+  { id: "u-bahadir.temizer", name: "Bahadır Temizer", email: "bahadir.temizer@nove.group", role: "admin", departmentId: null },
 ]
+
+/* ---------------------------------------------------------------------------
+ * SEED_DEPARTMENTS — Excel'den aktarılan gerçek OKR verisi.
+ *
+ * Kaynak: "NOVE Group Sep 2025-Aug 2026 OKR Tracking", 10 sayfa.
+ * 10 bölüm · 26 hedef · 63 key result. Hepsi 2025-FY dönemine bağlanır.
+ *
+ * Kurallar (tasarımdan):
+ *  - current = start her yerde: sistem %0'dan açılır, gerçekleşen değerleri
+ *    Bahadır girer. Excel'de 40 KR'da dolu değer vardı; bilinçli olarak alınmadı.
+ *  - Yüzdeler Excel'de kesirdi (0.075); burada 7.5 + unit '%'.
+ *  - conf her yerde 'mid': Excel'in "On track / At Risk" etiketleri atılan
+ *    ölçümlere göre verilmişti, %0'dan başlayan tabloda yanıltıcı olurdu.
+ *  - owner her yerde '': Excel'de 51 KR'da sahip yok, 12'sinde kişi değil rol
+ *    etiketi var ("Ops Planning", "All", "Drs"). Sahiplik sonradan atanır.
+ *  - rollup: aylık kırılım (Faz 2) bunu kullanır. 14 sum · 37 avg · 12 last.
+ *  - updated: 0 — hiç güncelleme yapılmadı.
+ *
+ * `start === target` olan KR "ölçülemiyor" sayılır, rozetle işaretlenir ve
+ * ortalamaya katılmaz. Bu dosyada iki tane var: k-mkt-cpl ve k-hop-anket-genel.
+ * ------------------------------------------------------------------------- */
 
 export const SEED_DEPARTMENTS: SeedDepartment[] = [
   {
-    id: "pazarlama", emoji: "📢", owner: "Deniz Aksoy",
+    id: "sirket", emoji: "🏢", owner: "",
+    name: { tr: "Şirket", en: "Company" },
+    objectives: [
+      {
+        id: "o-sirket-1", code: "O1", owner: "",
+        title: {
+          tr: "Türkiye'nin en çok aranan saç ekim kliniği ol",
+          en: "Become the most searched hair transplant clinic in Turkey",
+        },
+        krs: [
+          { id: "k-sirket-operasyon", start: 0, current: 0, target: 3400, unit: "", conf: "mid", owner: "", updated: 0, rollup: "sum",
+            title: { tr: "Toplam operasyon sayısı", en: "Number of operations — all" } },
+          { id: "k-sirket-aov", start: 0, current: 0, target: 5200, unit: "", conf: "mid", owner: "", updated: 0, rollup: "avg",
+            title: { tr: "Saç ekiminde ortalama sepet tutarı", en: "AOV — hair transplant" } },
+          { id: "k-sirket-roas", start: 4.25, current: 4.25, target: 5.3, unit: "", conf: "mid", owner: "", updated: 0, rollup: "avg",
+            title: { tr: "Saç ekiminde ROAS'ı 5,3'e çıkar", en: "Increase ROAS — hair transplant" } },
+          { id: "k-sirket-marka", start: 4.04, current: 4.04, target: 4.8, unit: "%", conf: "mid", owner: "", updated: 0, rollup: "last",
+            title: { tr: "Estenove marka bilinirliği skorunu artır", en: "Increase brand awareness score — Estenove" } },
+          { id: "k-sirket-nps", start: 0, current: 0, target: 88, unit: "", conf: "mid", owner: "", updated: 0, rollup: "avg",
+            title: { tr: "NPS'i (12. gün) 88'e çıkar", en: "Increase NPS (12th day)" } },
+        ],
+      },
+    ],
+  },
+
+  {
+    id: "pazarlama", emoji: "📢", owner: "",
     name: { tr: "Pazarlama", en: "Marketing" },
     objectives: [
       {
-        id: "o-mkt-1", code: "O1", owner: "Deniz Aksoy",
-        title: { tr: "Nitelikli lead maliyetini düşür", en: "Bring down qualified lead cost" },
+        id: "o-pzr-1", code: "O1", owner: "",
+        title: { tr: "Hasta havuzunu büyüt", en: "Drive patient pipeline generation" },
         krs: [
-          { id: "k1", start: 950, current: 720, target: 650, unit: "₺", conf: "mid", owner: "Deniz Aksoy", updated: 3,
-            title: { tr: "Lead başına maliyeti 650 TL’ye indir", en: "Reduce cost per lead to ₺650" } },
-          { id: "k2", start: 42000, current: 61000, target: 80000, unit: "", conf: "high", owner: "Berk Uçar", updated: 1,
-            title: { tr: "Organik trafiği 80.000 oturuma çıkar", en: "Grow organic traffic to 80k sessions" } },
-          { id: "k3", start: 18000, current: 24000, target: 35000, unit: "", conf: "low", owner: "Selin Ateş", updated: 9,
-            title: { tr: "Instagram takipçisini 35.000’e çıkar", en: "Grow Instagram to 35k followers" } },
+          { id: "k-mkt-lead", start: 51500, current: 51500, target: 57500, unit: "", conf: "mid", owner: "", updated: 0, rollup: "sum",
+            title: { tr: "Yılda 57.500 lead üret (ayda 4.791)", en: "Generate 57,500 total leads annually (4,791/month)" } },
+          // Excel'de başlangıç 0, hedef 77,5 yazıyordu. Maliyet DÜŞMESİ gereken bir
+          // metrikte 0'dan 77,5'e çıkmak ilerleme sayılırdı — yön tersine dönerdi.
+          // Bugünkü maliyet bilinmediği için start = target: "ölçülemiyor".
+          { id: "k-mkt-cpl", start: 77.5, current: 77.5, target: 77.5, unit: "$", conf: "mid", owner: "", updated: 0, rollup: "avg",
+            title: { tr: "Arama kampanyalarında lead maliyetini 77,5 doların altına indir", en: "Achieve cost per lead below $77.5 for search campaigns" } },
+        ],
+      },
+      {
+        id: "o-pzr-2", code: "O2", owner: "",
+        title: { tr: "Estenove marka otoritesini kur", en: "Build Estenove brand authority" },
+        krs: [
+          { id: "k-mkt-arama", start: 74000, current: 74000, target: 100000, unit: "", conf: "mid", owner: "", updated: 0, rollup: "sum",
+            title: { tr: "100.000 marka aramasına ulaş", en: "Reach 100,000 brand searches" } },
+          { id: "k-mkt-organik", start: 10909, current: 10909, target: 14200, unit: "", conf: "mid", owner: "", updated: 0, rollup: "sum",
+            title: { tr: "Organik leadleri %30 artır", en: "Increase organic leads by 30%" } },
+          { id: "k-mkt-seo", start: 20, current: 20, target: 60, unit: "%", conf: "mid", owner: "", updated: 0, rollup: "last",
+            title: { tr: "Hedef anahtar kelimelerin en az %60'ında ilk 10'a gir", en: "Rank in the top 10 for at least 60% of target SEO keywords" } },
+        ],
+      },
+      {
+        id: "o-pzr-3", code: "O3", owner: "",
+        title: { tr: "Pazarlama verimliliğini optimize et", en: "Optimize marketing ROI and efficiency" },
+        krs: [
+          // Kullanıcı netleştirdi: %7,5 VARILACAK oran, artış miktarı değil.
+          // Gerçek başlangıç bilinmiyor; 0'dan başlayınca ilerleme olduğundan
+          // düşük görünür. Bahadır ilk ay girişinde başlangıcı düzeltebilir.
+          { id: "k-mkt-cro", start: 0, current: 0, target: 7.5, unit: "%", conf: "mid", owner: "", updated: 0, rollup: "avg",
+            title: { tr: "Google arama dönüşüm oranını %7,5'e çıkar", en: "Increase Google search conversion rate to 7.5%" } },
+        ],
+      },
+      {
+        id: "o-pzr-4", code: "O4", owner: "",
+        title: { tr: "CRM ve sadakat pazarlamasını güçlendir", en: "Strengthen CRM and retention marketing" },
+        krs: [
+          { id: "k-mkt-crm", start: 1, current: 1, target: 5, unit: "%", conf: "mid", owner: "", updated: 0, rollup: "last",
+            title: { tr: "Uyuyan leadlerin en az %5'ini yeniden kazan", en: "Reactivate at least 5% of dormant leads" } },
         ],
       },
     ],
   },
+
   {
-    id: "saha", emoji: "🏨", owner: "Murat Şen",
-    name: { tr: "Saha Operasyon", en: "Field Operations" },
+    id: "misafir", emoji: "🏨", owner: "",
+    name: { tr: "Misafir Deneyimi", en: "Hospitality" },
     objectives: [
       {
-        id: "o-saha-1", code: "O1", owner: "Murat Şen",
-        title: { tr: "Misafir deneyim skorunu kalıcı olarak yükselt", en: "Permanently lift the guest experience score" },
+        id: "o-msf-1", code: "O1", owner: "",
+        title: { tr: "En çok tavsiye edilen saç ekim şirketi ol", en: "Become the most promoted hair transplant company" },
         krs: [
-          { id: "k4", start: 41, current: 54, target: 60, unit: "", conf: "high", owner: "Murat Şen", updated: 2,
-            title: { tr: "NPS skorunu 60’a çıkar", en: "Raise NPS to 60" } },
-          { id: "k5", start: 12, current: 7, target: 4, unit: "%", conf: "mid", owner: "Gizem Kara", updated: 4,
-            title: { tr: "Transfer gecikme oranını %4’e düşür", en: "Cut transfer delay rate to 4%" } },
-          { id: "k6", start: 68, current: 79, target: 85, unit: "%", conf: "high", owner: "Onur Bal", updated: 1,
-            title: { tr: "Konaklama doluluğunu %85’e çıkar", en: "Raise accommodation occupancy to 85%" } },
+          { id: "k-msf-anket", start: 0, current: 0, target: 4.75, unit: "", conf: "mid", owner: "", updated: 0, rollup: "avg",
+            title: { tr: "Misafir deneyimi anket ortalaması", en: "Hospitality survey (average)" } },
+          { id: "k-msf-yorum", start: 0, current: 0, target: 650, unit: "", conf: "mid", owner: "", updated: 0, rollup: "sum",
+            title: { tr: "Yeni Google ve Trustpilot 5 yıldız yorumu", en: "New Google and Trustpilot 5-star reviews" } },
+          { id: "k-msf-nps", start: 73, current: 73, target: 88, unit: "", conf: "mid", owner: "", updated: 0, rollup: "avg",
+            title: { tr: "NPS (12. gün)", en: "NPS (12th day)" } },
+        ],
+      },
+      {
+        id: "o-msf-2", code: "O2", owner: "",
+        title: { tr: "Ek satışları artır", en: "Increase add-on sales" },
+        krs: [
+          { id: "k-msf-epi23", start: 0, current: 0, target: 269450, unit: "", conf: "mid", owner: "", updated: 0, rollup: "sum",
+            title: { tr: "Epi23 ve günlük tur satışları", en: "Epi23 and daily tour sales" } },
+          { id: "k-msf-diger", start: 0, current: 0, target: 292680, unit: "", conf: "mid", owner: "", updated: 0, rollup: "sum",
+            title: { tr: "Diğer satışlar (otel, transfer vb.)", en: "Other sales (hotels, transfers, etc.)" } },
+          { id: "k-msf-aftercare", start: 0, current: 0, target: 159500, unit: "", conf: "mid", owner: "", updated: 0, rollup: "sum",
+            title: { tr: "Aftercare ürün satışları", en: "Aftercare product sales" } },
         ],
       },
     ],
   },
+
   {
-    id: "kalite", emoji: "🎯", owner: "Aylin Demir",
-    name: { tr: "Kalite Kontrol", en: "Quality Control" },
+    id: "satis-kalite", emoji: "🎧", owner: "",
+    name: { tr: "Satış Kalite", en: "Sales Performance & Quality" },
     objectives: [
       {
-        id: "o-kal-1", code: "O1", owner: "Aylin Demir",
-        title: { tr: "Klinik süreç uyumunu standartlaştır", en: "Standardise clinical process compliance" },
+        id: "o-skl-1", code: "O1", owner: "",
+        title: { tr: "Satış kalitesini yükselt", en: "Improve the quality of sales" },
         krs: [
-          { id: "k7", start: 76, current: 88, target: 95, unit: "", conf: "high", owner: "Aylin Demir", updated: 2,
-            title: { tr: "Denetim uyum skorunu 95’e çıkar", en: "Raise audit compliance score to 95" } },
-          { id: "k8", start: 5.2, current: 3.4, target: 2, unit: "%", conf: "mid", owner: "Cem Yıldız", updated: 5,
-            title: { tr: "Tekrar işlem oranını %2’ye düşür", en: "Reduce rework rate to 2%" } },
-          { id: "k9", start: 60, current: 95, target: 100, unit: "%", conf: "high", owner: "Aylin Demir", updated: 1,
-            title: { tr: "SOP kapsamasını %100’e tamamla", en: "Complete SOP coverage to 100%" } },
+          { id: "k-skl-skor", start: 98.87, current: 98.87, target: 99.5, unit: "%", conf: "mid", owner: "", updated: 0, rollup: "avg",
+            title: { tr: "Kalite skorunu %99,50'ye çıkar", en: "Increase quality score to 99.50%" } },
+          { id: "k-skl-stemcell", start: 0, current: 0, target: 95, unit: "%", conf: "mid", owner: "", updated: 0, rollup: "avg",
+            title: { tr: "Tüm görüşmelerde stem cell paket tanıtımını %95'e çıkar", en: "Increase stem cell package mentions in all calls to 95%" } },
+          { id: "k-skl-dusuk5", start: 96.68, current: 96.68, target: 98, unit: "%", conf: "mid", owner: "", updated: 0, rollup: "last",
+            title: { tr: "En düşük 5 satıcı skorunu %98'e yükselt", en: "Raise the lowest five salesperson scores to 98%" } },
+          { id: "k-skl-premium", start: 0, current: 0, target: 90, unit: "%", conf: "mid", owner: "", updated: 0, rollup: "avg",
+            title: { tr: "Tüm görüşmelerde premium paket tanıtımını %90'a çıkar", en: "Increase premium package mentions in all calls to 90%" } },
+        ],
+      },
+      {
+        id: "o-skl-2", code: "O2", owner: "",
+        title: { tr: "Analiz süreçlerini sistemleştir", en: "Systematize analysis processes" },
+        krs: [
+          { id: "k-skl-otomasyon", start: 0, current: 0, target: 100, unit: "%", conf: "mid", owner: "", updated: 0, rollup: "last",
+            title: { tr: "Görüşme dinleme ve puanlamayı %100 otomatikleştir", en: "Automate call listening and scoring and integrate fully" } },
         ],
       },
     ],
   },
+
   {
-    id: "finans", emoji: "💰", owner: "Kerem Polat",
+    id: "finans", emoji: "💰", owner: "",
     name: { tr: "Finans", en: "Finance" },
     objectives: [
       {
-        id: "o-fin-1", code: "O1", owner: "Kerem Polat",
-        title: { tr: "Nakit döngüsünü kısalt", en: "Shorten the cash cycle" },
+        id: "o-fin-1", code: "O1", owner: "",
+        title: { tr: "Teşvikleri ve finansal tasarrufu artır", en: "Increase marketing incentives and financial savings" },
         krs: [
-          { id: "k10", start: 46, current: 38, target: 30, unit: "gün", conf: "mid", owner: "Kerem Polat", updated: 3,
-            title: { tr: "Ortalama tahsilat süresini 30 güne indir", en: "Cut average collection to 30 days" } },
-          { id: "k11", start: 34, current: 37, target: 41, unit: "%", conf: "mid", owner: "Kerem Polat", updated: 2,
-            title: { tr: "Brüt marjı %41’e çıkar", en: "Raise gross margin to 41%" } },
-          { id: "k12", start: 9, current: 6, target: 3, unit: "%", conf: "high", owner: "Ece Tan", updated: 6,
-            title: { tr: "Bütçe sapmasını %3’e indir", en: "Reduce budget variance to 3%" } },
+          { id: "k-fin-tesvik", start: 0, current: 0, target: 100, unit: "%", conf: "mid", owner: "", updated: 0, rollup: "avg",
+            title: { tr: "Reklam giderlerinin %100'ünü ödemeden sonraki 1 gün içinde teşvik ekibine ilet", en: "Forward 100% of advertising expenses to the incentive team within one day of payment" } },
+          // "Sezon başına 35.000$" — sezon tanımı netleşmedi, yılda tek sezon varsayıldı.
+          { id: "k-fin-tedarik", start: 0, current: 0, target: 35000, unit: "$", conf: "mid", owner: "", updated: 0, rollup: "sum",
+            title: { tr: "Yeni yıl tedarikçi anlaşmalarında sezon başına 35.000 dolar kâr sağla", en: "Cut total costs in new-year supplier agreements to achieve $35,000 profit per season" } },
+        ],
+      },
+      {
+        id: "o-fin-2", code: "O2", owner: "",
+        title: { tr: "Hasta memnuniyetini artıran finansal süreçler kur", en: "Create financial processes that increase patient satisfaction" },
+        krs: [
+          { id: "k-fin-kayip", start: 2, current: 2, target: 1, unit: "%", conf: "mid", owner: "", updated: 0, rollup: "avg",
+            title: { tr: "Ödeme süreçlerinde hasta/ödeme kaybını %1'in altına indir", en: "Reduce the patient and payment loss rate below 1%" } },
+          { id: "k-fin-taksit", start: 0, current: 0, target: 50000, unit: "$", conf: "mid", owner: "", updated: 0, rollup: "sum",
+            title: { tr: "Taksitli ödemeden 50.000 doları aşan ciro elde et", en: "Achieve over $50,000 revenue from instalment payments" } },
+        ],
+      },
+      {
+        id: "o-fin-3", code: "O3", owner: "",
+        title: { tr: "Sürdürülebilirliğe katkı sağla", en: "Contribute to sustainability" },
+        krs: [
+          { id: "k-fin-tedarikci", start: 0, current: 0, target: 98, unit: "%", conf: "mid", owner: "", updated: 0, rollup: "last",
+            title: { tr: "Tedarikçi memnuniyetini %98 ve üzerine çıkar", en: "Achieve a supplier satisfaction rate of 98% or higher" } },
+          { id: "k-fin-butce", start: 0, current: 0, target: 95, unit: "%", conf: "mid", owner: "", updated: 0, rollup: "avg",
+            title: { tr: "Bütçe rakamlarına %95 uyum sağla", en: "Ensure 95% compliance with budget figures" } },
         ],
       },
     ],
   },
+
   {
-    id: "ik", emoji: "👥", owner: "Elif Çınar",
-    name: { tr: "İnsan Kaynakları", en: "People" },
+    id: "insan-kultur", emoji: "👥", owner: "",
+    name: { tr: "İnsan ve Kültür", en: "People & Culture" },
     objectives: [
       {
-        id: "o-ik-1", code: "O1", owner: "Elif Çınar",
-        title: { tr: "Ekip bağlılığını ve yetkinliğini büyüt", en: "Grow engagement and capability" },
+        id: "o-ikl-1", code: "O1", owner: "",
+        title: { tr: "İşe alım verimliliğini artır", en: "Improve recruitment efficiency" },
         krs: [
-          { id: "k13", start: 62, current: 69, target: 78, unit: "", conf: "mid", owner: "Elif Çınar", updated: 2,
-            title: { tr: "Çalışan bağlılık skorunu 78’e çıkar", en: "Raise engagement score to 78" } },
-          { id: "k14", start: 28, current: 22, target: 15, unit: "%", conf: "low", owner: "Elif Çınar", updated: 7,
-            title: { tr: "İlk yıl devir hızını %15’e düşür", en: "Cut first-year turnover to 15%" } },
-          { id: "k15", start: 45, current: 81, target: 90, unit: "%", conf: "high", owner: "Nazlı Er", updated: 1,
-            title: { tr: "Eğitim tamamlama oranını %90’a çıkar", en: "Raise training completion to 90%" } },
+          { id: "k-ikl-turnover1", start: 20, current: 20, target: 17, unit: "%", conf: "mid", owner: "", updated: 0, rollup: "last",
+            title: { tr: "İlk yıl devir oranını %17'ye düşür", en: "Reduce first-year turnover to 17%" } },
+          { id: "k-ikl-sure", start: 48, current: 48, target: 45, unit: "", conf: "mid", owner: "", updated: 0, rollup: "avg",
+            title: { tr: "Ortalama işe alım süresini 45 güne indir", en: "Reduce average time-to-hire to 45 days" } },
+          { id: "k-ikl-kalite", start: 0, current: 0, target: 85, unit: "%", conf: "mid", owner: "", updated: 0, rollup: "avg",
+            title: { tr: "%85 işe alım kalitesi oranına ulaş", en: "Achieve an 85% quality-of-hire rate" } },
         ],
       },
       {
-        id: "o-ik-2", code: "O2", owner: "Nazlı Er",
-        title: { tr: "İşe alım hızını artır", en: "Speed up hiring" },
+        id: "o-ikl-2", code: "O2", owner: "",
+        title: { tr: "Yetenekleri geliştir ve sürdürülebilir büyümeyi destekle", en: "Develop and onboard talent to support sustainable growth" },
         krs: [
-          { id: "k16", start: 41, current: 33, target: 25, unit: "gün", conf: "mid", owner: "Nazlı Er", updated: 3,
-            title: { tr: "Time-to-hire’ı 25 güne indir", en: "Cut time-to-hire to 25 days" } },
-          { id: "k17", start: 12, current: 14, target: 25, unit: "%", conf: "low", owner: "Elif Çınar", updated: 8,
-            title: { tr: "İç terfi oranını %25’e çıkar", en: "Raise internal promotion rate to 25%" } },
+          { id: "k-ikl-egitim", start: 4.8, current: 4.8, target: 4.85, unit: "", conf: "mid", owner: "", updated: 0, rollup: "avg",
+            title: { tr: "Ortalama eğitim memnuniyetini 4,85 / 5 yap", en: "Achieve an average training satisfaction score of 4.85 / 5" } },
+          { id: "k-ikl-oryantasyon", start: 91, current: 91, target: 95, unit: "%", conf: "mid", owner: "", updated: 0, rollup: "avg",
+            title: { tr: "Yeni işe alımlarda %95 oryantasyon memnuniyeti sağla", en: "Achieve a 95% onboarding satisfaction score for new hires" } },
+        ],
+      },
+      {
+        id: "o-ikl-3", code: "O3", owner: "",
+        title: { tr: "Yüksek performanslı ve mutlu bir ekip kur", en: "Build and sustain a high-performing, happy workforce" },
+        krs: [
+          { id: "k-ikl-gonullu", start: 26, current: 26, target: 23, unit: "%", conf: "mid", owner: "", updated: 0, rollup: "last",
+            title: { tr: "Gönüllü ayrılma oranını yıllık %23'e düşür", en: "Reduce voluntary turnover to around 23% annually" } },
+          { id: "k-ikl-memnuniyet", start: 77, current: 77, target: 80, unit: "%", conf: "mid", owner: "", updated: 0, rollup: "last",
+            title: { tr: "Çalışan memnuniyetini %80'e çıkar", en: "Increase employee satisfaction to 80%" } },
+          { id: "k-ikl-katilim", start: 78, current: 78, target: 84, unit: "%", conf: "mid", owner: "", updated: 0, rollup: "last",
+            title: { tr: "Yıllık memnuniyet anketinde %84 üzeri katılım sağla", en: "Reach 84%+ participation in the annual satisfaction survey" } },
         ],
       },
     ],
   },
+
   {
-    id: "sdr", emoji: "💼", owner: "Barış Koç",
-    name: { tr: "SDR/Satış", en: "SDR/Sales" },
+    id: "satis", emoji: "📈", owner: "",
+    name: { tr: "Satış", en: "Sales" },
     objectives: [
       {
-        id: "o-sdr-1", code: "O1", owner: "Barış Koç",
-        title: { tr: "Dönüşüm hunisini sıkılaştır", en: "Tighten the conversion funnel" },
+        id: "o-sat-1", code: "O1", owner: "",
+        title: { tr: "Hasta sayısını artır", en: "Increase the number of patients" },
         krs: [
-          { id: "k18", start: 18, current: 26, target: 30, unit: "%", conf: "high", owner: "Barış Koç", updated: 1,
-            title: { tr: "Lead→konsültasyon oranını %30’a çıkar", en: "Raise lead→consult rate to 30%" } },
-          { id: "k19", start: 31, current: 33, target: 45, unit: "%", conf: "low", owner: "Tuna Aydın", updated: 6,
-            title: { tr: "Konsültasyon→işlem oranını %45’e çıkar", en: "Raise consult→procedure rate to 45%" } },
-          { id: "k20", start: 4200, current: 4750, target: 5500, unit: "€", conf: "mid", owner: "Barış Koç", updated: 2,
-            title: { tr: "Ortalama sepeti 5.500 €’ya çıkar", en: "Raise average basket to €5,500" } },
+          { id: "k-sat-genel", start: 5.45, current: 5.45, target: 6, unit: "%", conf: "mid", owner: "", updated: 0, rollup: "avg",
+            title: { tr: "Genel satış oranını %5,45'ten %6'ya çıkar", en: "Increase the overall sales rate from 5.45% to 6%" } },
+          { id: "k-sat-italya", start: 0, current: 0, target: 200, unit: "", conf: "mid", owner: "", updated: 0, rollup: "sum",
+            title: { tr: "İtalya ve Almanya'dan 200 hasta getir", en: "Bring 200 patients from Italy and Germany" } },
+          { id: "k-sat-dis", start: 0, current: 0, target: 200, unit: "", conf: "mid", owner: "", updated: 0, rollup: "sum",
+            title: { tr: "Diş kategorisinde 200 hasta getir", en: "Bring 200 patients in the dental category" } },
+          { id: "k-sat-fblost", start: 0, current: 0, target: 100, unit: "", conf: "mid", owner: "", updated: 0, rollup: "sum",
+            title: { tr: "FB&Lost kategorisinde 100 satış üret", en: "Generate 100 sales in the FB&Lost category" } },
+          { id: "k-sat-google", start: 4.2, current: 4.2, target: 4.8, unit: "%", conf: "mid", owner: "", updated: 0, rollup: "avg",
+            title: { tr: "Google satış oranını %4,2'den %4,8'e çıkar", en: "Increase the Google sales rate from 4.2% to 4.8%" } },
+          { id: "k-sat-organik", start: 12.2, current: 12.2, target: 13.5, unit: "%", conf: "mid", owner: "", updated: 0, rollup: "avg",
+            title: { tr: "Organik lead satış oranını %12'den %13,5'e çıkar", en: "Increase the organic lead sales rate from 12% to 13.5%" } },
+        ],
+      },
+      {
+        id: "o-sat-2", code: "O2", owner: "",
+        title: { tr: "Ortalama sepet tutarını artır", en: "Increase AOV" },
+        krs: [
+          { id: "k-sat-premium", start: 0, current: 0, target: 8, unit: "%", conf: "mid", owner: "", updated: 0, rollup: "avg",
+            title: { tr: "Premium paket satış oranını %8'e çıkar", en: "Increase the premium package sales rate to 8%" } },
+          { id: "k-sat-stemcell", start: 0, current: 0, target: 55, unit: "%", conf: "mid", owner: "", updated: 0, rollup: "avg",
+            title: { tr: "Stem cell paket satış oranını %55'e çıkar", en: "Increase the stem cell package sales rate to 55%" } },
         ],
       },
     ],
   },
+
   {
-    id: "medikal", emoji: "🩺", owner: "Dr. Hakan Yalın",
+    id: "medikal", emoji: "🩺", owner: "",
     name: { tr: "Medikal Operasyon", en: "Medical Operations" },
     objectives: [
       {
-        id: "o-med-1", code: "O1", owner: "Dr. Hakan Yalın",
-        title: { tr: "Komplikasyon oranını düşür, kapasiteyi büyüt", en: "Reduce complications, grow capacity" },
+        id: "o-med-1", code: "O1", owner: "",
+        title: { tr: "Medikal operasyon kalitesini artır", en: "Increase the quality of medical operations" },
         krs: [
-          { id: "k21", start: 2.4, current: 1.9, target: 1, unit: "%", conf: "mid", owner: "Dr. Hakan Yalın", updated: 2,
-            title: { tr: "Komplikasyon oranını %1,0’a düşür", en: "Cut complication rate to 1.0%" } },
-          { id: "k22", start: 14, current: 17, target: 22, unit: "", conf: "mid", owner: "Dr. Sena Ok", updated: 3,
-            title: { tr: "Günlük vaka kapasitesini 22’ye çıkar", en: "Grow daily case capacity to 22" } },
-          { id: "k23", start: 58, current: 74, target: 90, unit: "%", conf: "high", owner: "Dr. Sena Ok", updated: 1,
-            title: { tr: "30. gün hasta takibini %90’a çıkar", en: "Raise 30-day follow-up to 90%" } },
+          { id: "k-med-skor9", start: 0, current: 0, target: 9.2, unit: "", conf: "mid", owner: "", updated: 0, rollup: "avg",
+            title: { tr: "Medikal skor — 9 ay (klinik ortalaması)", en: "Medical score — 9 months (clinic average)" } },
+          { id: "k-med-genel9", start: 0, current: 0, target: 8.5, unit: "", conf: "mid", owner: "", updated: 0, rollup: "avg",
+            title: { tr: "Genel skor — 9 ay (klinik ortalaması)", en: "Overall score — 9 months (clinic average)" } },
+        ],
+      },
+      {
+        id: "o-med-2", code: "O2", owner: "",
+        title: { tr: "Müşteri memnuniyetini artır", en: "Increase customer satisfaction" },
+        krs: [
+          { id: "k-med-anket", start: 0, current: 0, target: 4.8, unit: "", conf: "mid", owner: "", updated: 0, rollup: "avg",
+            title: { tr: "Klinik bölümü anket ortalaması", en: "Clinic-part survey (average)" } },
+          { id: "k-med-nps12", start: 0, current: 0, target: 88, unit: "", conf: "mid", owner: "", updated: 0, rollup: "avg",
+            title: { tr: "Survey Monkey — NPS (12. gün)", en: "Survey Monkey — NPS (12th day)" } },
+          { id: "k-med-nps9", start: 0, current: 0, target: 70, unit: "", conf: "mid", owner: "", updated: 0, rollup: "avg",
+            title: { tr: "Survey Monkey — NPS (9. ay)", en: "Survey Monkey — NPS (9th month)" } },
+          { id: "k-med-ekip", start: 0, current: 0, target: 4.8, unit: "", conf: "mid", owner: "", updated: 0, rollup: "avg",
+            title: { tr: "Survey Monkey — medikal ekip bölümü", en: "Survey Monkey — medical team part" } },
         ],
       },
     ],
   },
+
   {
-    id: "ofis", emoji: "🛏️", owner: "Sibel Arı",
-    name: { tr: "Ofis Operasyon", en: "Office Operations" },
+    id: "hasta-op", emoji: "🛏️", owner: "",
+    name: { tr: "Hasta Operasyon", en: "Patient Operations" },
     objectives: [
       {
-        id: "o-ofs-1", code: "O1", owner: "Sibel Arı",
-        title: { tr: "Operasyonel maliyeti optimize et", en: "Optimise operating cost" },
+        id: "o-hop-1", code: "O1", owner: "",
+        title: { tr: "En çok tavsiye edilen saç ekim şirketi ol", en: "Become the most promoted hair transplant company" },
         krs: [
-          { id: "k24", start: 1850, current: 1620, target: 1400, unit: "₺", conf: "mid", owner: "Sibel Arı", updated: 4,
-            title: { tr: "Kişi başı ofis maliyetini 1.400 TL’ye indir", en: "Cut office cost per head to ₺1,400" } },
-          { id: "k25", start: 6, current: 4.8, target: 2, unit: "%", conf: "low", owner: "Sibel Arı", updated: 11,
-            title: { tr: "Envanter fire oranını %2’ye düşür", en: "Cut inventory waste to 2%" } },
+          { id: "k-hop-tercuman", start: 0, current: 0, target: 4.8, unit: "", conf: "mid", owner: "", updated: 0, rollup: "avg",
+            title: { tr: "Tercüman anket ortalaması", en: "Interpreters survey (average)" } },
+          // Excel'de başlangıç 73, hedef 4,8 yazıyordu: NPS (73→88) ile 5'lik anket
+          // ölçeği (4,75 / 4,8) karışmış. Doğru hedef bilinmiyor; start = target
+          // bırakılıp "ölçülemiyor" işaretleniyor, Bahadır doğrusunu girecek.
+          { id: "k-hop-anket-genel", start: 0, current: 0, target: 0, unit: "", conf: "mid", owner: "", updated: 0, rollup: "avg",
+            title: { tr: "Genel anket (1. gün)", en: "General survey (1st day)" } },
+          { id: "k-hop-nps", start: 73, current: 73, target: 88, unit: "", conf: "mid", owner: "", updated: 0, rollup: "avg",
+            title: { tr: "Survey Monkey — NPS (12. gün)", en: "Survey Monkey — NPS (12th day)" } },
+        ],
+      },
+      {
+        id: "o-hop-2", code: "O2", owner: "",
+        title: { tr: "Ek satışları artır", en: "Increase add-on sales" },
+        krs: [
+          { id: "k-hop-aftercare", start: 0, current: 0, target: 1329750, unit: "", conf: "mid", owner: "", updated: 0, rollup: "sum",
+            title: { tr: "Aftercare ürün satışı", en: "Aftercare product sales" } },
+          { id: "k-hop-satisorani", start: 0, current: 0, target: 70, unit: "%", conf: "mid", owner: "", updated: 0, rollup: "avg",
+            title: { tr: "Müşteriye satış oranı", en: "Sales-to-customer rate" } },
+        ],
+      },
+      {
+        id: "o-hop-3", code: "O3", owner: "",
+        title: { tr: "Operasyon hijyen standartlarını yükselt", en: "Increase operation hygiene standards" },
+        krs: [
+          { id: "k-hop-hijyen", start: 0, current: 0, target: 4.8, unit: "", conf: "mid", owner: "", updated: 0, rollup: "avg",
+            title: { tr: "Hijyen skoru anketi", en: "Hygiene score survey" } },
+        ],
+      },
+      {
+        id: "o-hop-4", code: "O4", owner: "",
+        title: { tr: "Sarf malzemede bütçe uyumunu koru", en: "Maximize budget compliance for consumables" },
+        krs: [
+          // Excel'de başlangıç 0, hedef 1,1 (%110) yazıyordu. Bu bir TAVAN, ulaşılacak
+          // hedef değil — %110'a çıkmak başarı gibi okunurdu. Düşürme hedefine
+          // çevrildi: %110'dan %100'e.
+          { id: "k-hop-sarf", start: 110, current: 110, target: 100, unit: "%", conf: "mid", owner: "", updated: 0, rollup: "avg",
+            title: { tr: "Hasta başı sarf malzeme bütçenin %110'unu aşmasın", en: "Keep consumables per patient within 110% of budget" } },
+        ],
+      },
+    ],
+  },
+
+  {
+    id: "pre-op", emoji: "📋", owner: "",
+    name: { tr: "Operasyon Öncesi", en: "Pre-Ops" },
+    objectives: [
+      {
+        id: "o-pre-1", code: "O1", owner: "",
+        title: { tr: "En çok tavsiye edilen saç ekim şirketi ol", en: "Become the most promoted hair transplant company" },
+        krs: [
+          { id: "k-pre-anket", start: 0, current: 0, target: 4.75, unit: "", conf: "mid", owner: "", updated: 0, rollup: "avg",
+            title: { tr: "Klinik bölümü anket ortalaması", en: "Clinic-part survey (average)" } },
+          { id: "k-pre-nps", start: 73, current: 73, target: 88, unit: "", conf: "mid", owner: "", updated: 0, rollup: "avg",
+            title: { tr: "NPS (12. gün)", en: "NPS (12th day)" } },
+        ],
+      },
+      {
+        id: "o-pre-2", code: "O2", owner: "",
+        title: { tr: "SAP'ta sarı bayrak modülünü devreye al", en: "Implement the yellow flags module in SAP" },
+        krs: [
+          { id: "k-pre-faz1", start: 0, current: 0, target: 1, unit: "", conf: "mid", owner: "", updated: 0, rollup: "last",
+            title: { tr: "Faz 1: her sarı bayrak hastası için varış öncesi klinik bilgi aracı", en: "Phase 1: clinic info tool for every yellow-flag patient before arrival" } },
+          { id: "k-pre-faz2", start: 0, current: 0, target: 1, unit: "", conf: "mid", owner: "", updated: 0, rollup: "last",
+            title: { tr: "Faz 2: sarı bayrak hastasını varış öncesi SAP'a işle", en: "Phase 2: implement yellow-flag patients in SAP before arrival" } },
+        ],
+      },
+      {
+        id: "o-pre-3", code: "O3", owner: "",
+        title: { tr: "9 aylık sonuçları puanla", en: "Score nine-month results" },
+        krs: [
+          { id: "k-pre-skorlama", start: 0, current: 0, target: 65, unit: "%", conf: "mid", owner: "", updated: 0, rollup: "avg",
+            title: { tr: "Medikal skorlama oranını artır (9 ay)", en: "Increase the percentage of medical scoring (9 months)" } },
         ],
       },
     ],

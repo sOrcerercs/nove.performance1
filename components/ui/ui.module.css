@@ -74,10 +74,6 @@
   justify-content: center;
 }
 
-.kpiDelta { font-size: 12px; font-weight: 500; }
-.kpiUp { color: var(--success-fg); }
-.kpiDown { color: var(--danger-fg); }
-
 .kpiValue {
   font-size: 32px;
   line-height: 36px;

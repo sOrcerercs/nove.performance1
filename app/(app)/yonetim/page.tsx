@@ -6,7 +6,7 @@ import { requireUser } from '@/lib/auth/session'
 import { getDb } from '@/lib/db'
 import { getAdminData } from '@/lib/queries/admin'
 import { getAssignablePeople } from '@/lib/queries/people'
-import { periodParam, resolvePeriod } from '@/lib/queries/periods'
+import { resolveRange } from '@/lib/queries/range'
 import { AdminTables } from './admin-tables'
 
 export default async function AdminPage({
@@ -18,17 +18,12 @@ export default async function AdminPage({
   if (!can(user, 'manage:users')) redirect('/')
 
   const db = await getDb()
-  const selection = await resolvePeriod(db, periodParam(await searchParams))
+  const selection = await resolveRange(db, await searchParams)
   const [vm, people] = await Promise.all([getAdminData(db), getAssignablePeople(db)])
 
   return (
     <>
-      <Topbar
-        overline="Yönetim"
-        title="Yönetim"
-        periods={selection?.all ?? []}
-        activePeriod={selection?.current.code ?? ''}
-      />
+      <Topbar overline="Yönetim" title="Yönetim" selection={selection} />
       <main className={shell.content}>
         <AdminTables vm={vm} currentUserId={user.id} people={people} />
       </main>

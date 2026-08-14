@@ -124,7 +124,7 @@ export function HelpClient({
       <div className={styles.searchRow}>
         <input
           className={styles.search}
-          placeholder="Soru veya kelime ara… (örn. parola, geçmiş veri, çeyrek)"
+          placeholder="Soru veya kelime ara… (örn. parola, geçmiş veri, mali yıl)"
           aria-label="Kılavuzda ara"
           value={query}
           onChange={(e) => setQuery(e.target.value)}

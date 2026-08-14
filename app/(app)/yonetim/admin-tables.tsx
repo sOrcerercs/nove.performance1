@@ -9,6 +9,7 @@ import {
   createUser,
   deleteUser,
   setUserPassword,
+  setDefaultRangeStart,
   setPeriodState,
   updatePeriodDates,
   setUserRole,
@@ -61,7 +62,9 @@ export function AdminTables({
   const [deptId, setDeptId] = useState<string>('')
   const [password, setPassword] = useState('')
 
-  // New period form. Quarters only — see the note beside the form.
+  // New period form. Always creates a fiscal year (`kind: 'year'` below) —
+  // a quarter or month period can still exist, but only added by hand
+  // straight into the database; this form has no control for `kind`.
   const [pCode, setPCode] = useState('')
   const [pStart, setPStart] = useState('')
   const [pEnd, setPEnd] = useState('')
@@ -74,6 +77,9 @@ export function AdminTables({
   const [dateFor, setDateFor] = useState<string | null>(null)
   const [dStart, setDStart] = useState('')
   const [dEnd, setDEnd] = useState('')
+
+  // Default date range start
+  const [rangeStart, setRangeStart] = useState(vm.defaultRangeStart)
 
   const refresh = () => startTransition(() => router.refresh())
 
@@ -111,10 +117,17 @@ export function AdminTables({
 
   async function onCreatePeriod() {
     const ok = await run(
-      () => createPeriod({ code: pCode, kind: 'quarter', startsOn: pStart, endsOn: pEnd }),
+      () => createPeriod({ code: pCode, kind: 'year', startsOn: pStart, endsOn: pEnd }),
       'Dönem eklendi',
     )
     if (ok) { setPCode(''); setPStart(''); setPEnd('') }
+  }
+
+  async function onSaveRangeStart() {
+    await run(
+      () => setDefaultRangeStart({ startsOn: rangeStart }),
+      'Varsayılan tarih aralığı güncellendi',
+    )
   }
 
   async function onResetPassword(userId: string) {
@@ -316,7 +329,7 @@ export function AdminTables({
         <div className={styles.inviteBar}>
           <input
             className={styles.input}
-            placeholder="2027-Q1"
+            placeholder="2027-FY"
             aria-label="Dönem kodu"
             value={pCode} onChange={(e) => setPCode(e.target.value)}
           />
@@ -338,8 +351,8 @@ export function AdminTables({
         </div>
 
         <p className={styles.hintRow}>
-          Mali yıl <strong>Eylül</strong>'de başlar ve çeyrek etiketindeki yıl mali
-          yılın başladığı yıldır — <code>2026-Q1</code> = 1 Eylül – 30 Kasım 2026.
+          Mali yıl <strong>Eylül</strong>'de başlar; koddaki yıl mali yılın
+          başladığı yıldır — <code>2026-FY</code> = 1 Eylül 2026 – 31 Ağustos 2027.
           Bir dönemi <strong>{t('stateActive').toLowerCase()}</strong> yapmak diğer
           aktif dönemi kapatır; uygulama tek bir açık döngüye göre açılır.
         </p>
@@ -437,6 +450,30 @@ export function AdminTables({
             ))}
           </tbody>
         </table>
+      </section>
+
+      {/* ---------------------- default range start ---------------------- */}
+      <section className={styles.card}>
+        <div className={styles.cardHead}>
+          <h2 className={styles.cardTitle}>{t('defaultRangeStart')}</h2>
+        </div>
+
+        <div className={styles.inviteBar}>
+          <input
+            className={styles.input} type="date"
+            aria-label={t('defaultRangeStart')}
+            value={rangeStart} onChange={(e) => setRangeStart(e.target.value)}
+          />
+          <button
+            type="button" className={styles.primary}
+            disabled={pending || !rangeStart}
+            onClick={onSaveRangeStart}
+          >
+            Kaydet
+          </button>
+        </div>
+
+        <p className={styles.hintRow}>{t('defaultRangeStartNote')}</p>
       </section>
     </>
   )

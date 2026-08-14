@@ -4,6 +4,7 @@ import type { SessionUser } from '@/lib/auth/permissions'
 import { createTestDb } from '@/lib/db'
 import { checkins, departments, keyResults, objectives, users } from '@/lib/db/schema'
 import { seed } from '@/lib/db/seed'
+import { SEED_OBJECTIVE_PERIOD_ID } from '@/lib/db/seed-data'
 import type { Role } from '@/lib/domain/types'
 import {
   createDepartmentAs,
@@ -20,8 +21,8 @@ async function seeded() {
   return db
 }
 
-const actor = (role: Role, id = 'u-elif.cinar'): SessionUser => ({
-  id, name: 'Test', email: 't@nove.group', role, departmentId: 'ik',
+const actor = (role: Role, id = 'u-kagan.ozturk'): SessionUser => ({
+  id, name: 'Test', email: 't@nove.group', role, departmentId: null,
 })
 
 const newDept = {
@@ -41,13 +42,13 @@ test('an admin creates a department and it lands at the end of the list', async 
   if (!res.ok) return
 
   const rows = await db.select().from(departments).orderBy(departments.sortOrder)
-  expect(rows).toHaveLength(9)
+  expect(rows).toHaveLength(11)
   expect(rows[rows.length - 1]?.slug).toBe('hukuk')
 })
 
 test('a duplicate slug is refused rather than throwing', async () => {
   const db = await seeded()
-  const res = await createDepartmentAs(db, actor('admin'), { ...newDept, slug: 'saha' })
+  const res = await createDepartmentAs(db, actor('admin'), { ...newDept, slug: 'satis' })
   expect(res.ok).toBe(false)
   if (!res.ok) expect(res.error).toContain('kısa ad')
 })
@@ -78,7 +79,7 @@ test('only an admin may create a department', async () => {
     const res = await createDepartmentAs(db, actor(role), { ...newDept, slug: `x-${role}` })
     expect(res.ok, role).toBe(false)
   }
-  expect(await db.select().from(departments)).toHaveLength(8)
+  expect(await db.select().from(departments)).toHaveLength(10)
 })
 
 /* -------------------------------- update -------------------------------- */
@@ -86,25 +87,25 @@ test('only an admin may create a department', async () => {
 test('renaming a department keeps its slug, so links do not break', async () => {
   const db = await seeded()
   const res = await updateDepartmentAs(db, actor('admin'), {
-    id: 'saha',
+    id: 'satis',
     emoji: '🏖️',
-    nameTr: 'Saha Operasyonları',
-    nameEn: 'Field Ops',
-    leadUserId: 'u-onur.bal',
+    nameTr: 'Satış Operasyonları',
+    nameEn: 'Sales Ops',
+    leadUserId: 'u-bahadir.temizer',
   })
   expect(res.ok).toBe(true)
 
-  const [row] = await db.select().from(departments).where(eq(departments.id, 'saha'))
-  expect(row?.nameTr).toBe('Saha Operasyonları')
+  const [row] = await db.select().from(departments).where(eq(departments.id, 'satis'))
+  expect(row?.nameTr).toBe('Satış Operasyonları')
   expect(row?.emoji).toBe('🏖️')
-  expect(row?.leadUserId).toBe('u-onur.bal')
-  expect(row?.slug).toBe('saha')
+  expect(row?.leadUserId).toBe('u-bahadir.temizer')
+  expect(row?.slug).toBe('satis')
 })
 
 test('an executive cannot rename a department', async () => {
   const db = await seeded()
   const res = await updateDepartmentAs(db, actor('executive'), {
-    id: 'saha', emoji: '🏖️', nameTr: 'X', nameEn: 'X', leadUserId: null,
+    id: 'satis', emoji: '🏖️', nameTr: 'X', nameEn: 'X', leadUserId: null,
   })
   expect(res.ok).toBe(false)
 })
@@ -113,26 +114,31 @@ test('an executive cannot rename a department', async () => {
 
 test('a department holding objectives cannot be deleted', async () => {
   const db = await seeded()
+  // The real seed has nobody's departmentId set (all three accounts are
+  // homeless admins), so the "affected users" count needs a person planted
+  // here to stay a meaningful, non-vacuous check.
+  await db.update(users).set({ departmentId: 'sirket' }).where(eq(users.id, 'u-bahadir.temizer'))
+
   await submitCheckinFor(db, actor('admin'), {
-    keyResultId: 'k4', newValue: 57, confidence: 'high',
+    keyResultId: 'k-sirket-operasyon', newValue: 1700, confidence: 'high',
   })
 
-  const impact = await describeDepartmentDeletion(db, actor('admin'), 'saha')
+  const impact = await describeDepartmentDeletion(db, actor('admin'), 'sirket')
   expect(impact.ok).toBe(true)
   if (impact.ok) {
     expect(impact.data.objectives).toBe(1)
-    expect(impact.data.keyResults).toBe(3)
+    expect(impact.data.keyResults).toBe(5)
     expect(impact.data.checkins).toBe(1)
-    expect(impact.data.users).toBeGreaterThan(0)
+    expect(impact.data.users).toBe(1)
   }
 
-  const res = await deleteDepartmentAs(db, actor('admin'), { id: 'saha' })
+  const res = await deleteDepartmentAs(db, actor('admin'), { id: 'sirket' })
   expect(res.ok).toBe(false)
   if (!res.ok) expect(res.error).toContain('objective')
 
   // Nothing was destroyed on the way to being refused.
-  expect(await db.select().from(departments).where(eq(departments.id, 'saha'))).toHaveLength(1)
-  expect(await db.select().from(objectives).where(eq(objectives.departmentId, 'saha'))).toHaveLength(1)
+  expect(await db.select().from(departments).where(eq(departments.id, 'sirket'))).toHaveLength(1)
+  expect(await db.select().from(objectives).where(eq(objectives.departmentId, 'sirket'))).toHaveLength(1)
   expect(await db.select().from(checkins)).toHaveLength(1)
 })
 
@@ -143,7 +149,7 @@ test('an empty department is deleted and its people are detached, not deleted', 
   const created = await createDepartmentAs(db, actor('admin'), newDept)
   expect(created.ok).toBe(true)
   if (!created.ok) return
-  await db.update(users).set({ departmentId: created.data.id }).where(eq(users.id, 'u-berk.ucar'))
+  await db.update(users).set({ departmentId: created.data.id }).where(eq(users.id, 'u-oguzhan.kizilcan'))
 
   const res = await deleteDepartmentAs(db, actor('admin'), { id: created.data.id })
   expect(res.ok).toBe(true)
@@ -151,7 +157,7 @@ test('an empty department is deleted and its people are detached, not deleted', 
 
   expect(await db.select().from(departments).where(eq(departments.id, created.data.id))).toHaveLength(0)
 
-  const [person] = await db.select().from(users).where(eq(users.id, 'u-berk.ucar'))
+  const [person] = await db.select().from(users).where(eq(users.id, 'u-oguzhan.kizilcan'))
   expect(person).toBeTruthy()
   expect(person?.departmentId).toBeNull()
 })
@@ -203,7 +209,7 @@ test('a new department accepts objectives and shows up in progress rollups', asy
 
   await db.insert(objectives).values({
     id: 'o-hukuk-1', code: 'O1', departmentId: created.data.id,
-    periodId: 'p-2026-q3', titleTr: 'Sözleşme süresini kısalt', titleEn: 'Shorten contract cycle',
+    periodId: SEED_OBJECTIVE_PERIOD_ID, titleTr: 'Sözleşme süresini kısalt', titleEn: 'Shorten contract cycle',
   })
   await db.insert(keyResults).values({
     id: 'k-hukuk-1', objectiveId: 'o-hukuk-1',

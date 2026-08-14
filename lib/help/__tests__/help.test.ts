@@ -20,7 +20,7 @@ async function seeded() {
 }
 
 const actor = (role: Role): SessionUser => ({
-  id: 'u-elif.cinar', name: 'Elif Çınar', email: 'e@nove.group', role, departmentId: 'ik',
+  id: 'u-kagan.ozturk', name: 'Kağan Öztürk', email: 'e@nove.group', role, departmentId: null,
 })
 
 const valid = {
@@ -54,7 +54,7 @@ test('an admin adds a question and it appears after the built-in guide', async (
   const custom = all.filter((a) => a.source === 'custom')
   expect(custom).toHaveLength(1)
   expect(custom[0]?.question).toBe(valid.question)
-  expect(custom[0]?.authorName).toBe('Elif Çınar')
+  expect(custom[0]?.authorName).toBe('Kağan Öztürk')
   expect(all[0]?.source).toBe('builtin')
 })
 

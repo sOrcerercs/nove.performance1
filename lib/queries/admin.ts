@@ -1,7 +1,7 @@
-import { asc, count, isNotNull } from 'drizzle-orm'
 import type { Db } from '@/lib/db'
-import { departments, keyResults, objectives, periods, users } from '@/lib/db/schema'
 import type { PeriodKind, Role } from '@/lib/domain/types'
+import { getDefaultRangeStart } from './settings'
+import { allDepartments, allKeyResults, allObjectives, allPeriods, allUsers } from './tables'
 
 export type UserState = 'active' | 'passive'
 export type PeriodState = 'active' | 'closed' | 'planned'
@@ -56,6 +56,8 @@ export interface AdminVm {
   periods: AdminPeriod[]
   departments: AdminDepartmentOption[]
   departmentRows: AdminDepartment[]
+  /** The configured start of the default date range. */
+  defaultRangeStart: string
 }
 
 /**
@@ -67,19 +69,30 @@ export type ActionResult<T> = { ok: true; data: T } | { ok: false; error: string
 
 export const NOT_ALLOWED = 'Bu işlem için yetkin yok.'
 
-/** Read model for the admin screen. Plain serialisable values only. */
+/**
+ * Read model for the admin screen. Plain serialisable values only.
+ *
+ * Users, departments, periods, objectives and key results are all read
+ * through `./tables` so this shares its reads with the layout's own fan-out
+ * instead of issuing a second copy of each: the admin page renders
+ * concurrently with the layout, and against a pool sized for one request's
+ * worth of reads, a second copy of five of them was most of the way to
+ * exhausting it. The owner count used to be its own `GROUP BY` select, which
+ * looked unavoidable — no shared helper returns an aggregation — but
+ * `allKeyResults` already returns every row unfiltered, the same rows the
+ * grouping needs, so the count is folded in memory instead, the same way
+ * `objectivesByDept` and `usersByDept` below are.
+ */
 export async function getAdminData(db: Db): Promise<AdminVm> {
-  const [userRows, deptRows, periodRows, ownedRows, objRows] = await Promise.all([
-    db.select().from(users).orderBy(asc(users.name)),
-    db.select().from(departments).orderBy(asc(departments.sortOrder)),
-    db.select().from(periods).orderBy(asc(periods.startsOn)),
-    db
-      .select({ ownerUserId: keyResults.ownerUserId, n: count() })
-      .from(keyResults)
-      .where(isNotNull(keyResults.ownerUserId))
-      .groupBy(keyResults.ownerUserId),
-    db.select({ departmentId: objectives.departmentId }).from(objectives),
-  ])
+  const [userRows, deptRows, periodRows, krRows, objRows, defaultRangeStart] =
+    await Promise.all([
+      allUsers(db),
+      allDepartments(db),
+      allPeriods(db),
+      allKeyResults(db),
+      allObjectives(db),
+      getDefaultRangeStart(db),
+    ])
 
   const deptById = new Map(deptRows.map((d) => [d.id, d]))
   const userById = new Map(userRows.map((u) => [u.id, u]))
@@ -94,12 +107,17 @@ export async function getAdminData(db: Db): Promise<AdminVm> {
   for (const u of userRows) {
     if (u.departmentId) usersByDept.set(u.departmentId, (usersByDept.get(u.departmentId) ?? 0) + 1)
   }
-  const ownedById = new Map(
-    ownedRows.flatMap((r) => (r.ownerUserId ? [[r.ownerUserId, Number(r.n)] as const] : [])),
-  )
+  const ownedById = new Map<string, number>()
+  for (const k of krRows) {
+    if (k.ownerUserId) ownedById.set(k.ownerUserId, (ownedById.get(k.ownerUserId) ?? 0) + 1)
+  }
+
+  // `allUsers` is shared with other screens and carries no ordering of its
+  // own; the table sorts by name, so that is applied here instead of in SQL.
+  const sortedUsers = [...userRows].sort((a, b) => a.name.localeCompare(b.name, 'tr'))
 
   return {
-    users: userRows.map((u) => {
+    users: sortedUsers.map((u) => {
       const dept = u.departmentId ? deptById.get(u.departmentId) : undefined
       return {
         id: u.id,
@@ -133,5 +151,6 @@ export async function getAdminData(db: Db): Promise<AdminVm> {
       objectiveCount: objectivesByDept.get(d.id) ?? 0,
       userCount: usersByDept.get(d.id) ?? 0,
     })),
+    defaultRangeStart,
   }
 }

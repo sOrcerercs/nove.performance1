@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { ProgressBar } from '@/components/ui/ProgressBar'
-import { formatValue } from '@/lib/domain/format'
+import { formatMonth, formatValue, isBeforeCutoff } from '@/lib/domain/format'
 import { tx } from '@/lib/i18n/strings'
 import { usePrefs } from '@/lib/prefs/PrefsProvider'
 import type { OverviewAttentionItem } from '@/lib/queries/overview'
@@ -11,7 +11,16 @@ import styles from './overview.module.css'
 /** A key result untouched for a week is worth flagging on its own. */
 const STALE_DAYS = 7
 
-export function AttentionList({ items }: { items: OverviewAttentionItem[] }) {
+export function AttentionList({
+  items,
+  asOfMonth,
+}: {
+  items: OverviewAttentionItem[]
+  /** Required, like `KrRow`'s: both callers always pass it, and an optional
+   *  cutoff would silently disable every "son veri" marker on this list if one
+   *  ever forgot. */
+  asOfMonth: string
+}) {
   const { t, lang } = usePrefs()
 
   if (items.length === 0) {
@@ -33,6 +42,9 @@ export function AttentionList({ items }: { items: OverviewAttentionItem[] }) {
               <div className={styles.attentionMeta}>
                 {item.ownerName} · {formatValue(item.current, item.unit, lang)} →{' '}
                 {formatValue(item.target, item.unit, lang)}
+                {isBeforeCutoff(item.latestMonth, asOfMonth) ? (
+                  <> · {t('latestData')}: {formatMonth(item.latestMonth, lang)}</>
+                ) : null}
                 {' · '}
                 <span className={item.daysSinceUpdate >= STALE_DAYS ? styles.stale : undefined}>
                   {item.daysSinceUpdate} gün önce güncellendi

@@ -1,0 +1,1 @@
+ALTER TYPE "public"."period_kind" ADD VALUE 'year';

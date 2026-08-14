@@ -13,27 +13,24 @@ const STATUS_LABEL: Record<ReturnType<typeof statusOf>, StringKey> = {
   none: 'statusNotStarted',
 }
 
-/** The annual company goal, carried over verbatim from the prototype. */
-const COMPANY_GOAL = {
-  tr: '2026’da 12.000 uluslararası misafire kusursuz bakım ve %41 brüt marj',
-  en: 'Flawless care for 12,000 international guests in 2026, at a 41% gross margin',
-}
-
 interface Props {
   companyPct: number
   stats: { depts: number; objectives: number; krs: number; openKrs: number }
+  /** Codes of the periods the current range covers, oldest first. */
+  periodCodes: string[]
 }
 
-export function CompanyHero({ companyPct, stats }: Props) {
-  const { t, lang } = usePrefs()
+export function CompanyHero({ companyPct, stats, periodCodes }: Props) {
+  const { t } = usePrefs()
+  const periodLabel = periodCodes.join(' · ')
 
   return (
     <section className={styles.hero}>
       <div className={styles.heroMain}>
-        <div className={styles.heroOverline}>
-          {t('companyGoal')} · 2026
-        </div>
-        <h2 className={styles.heroGoal}>{lang === 'en' ? COMPANY_GOAL.en : COMPANY_GOAL.tr}</h2>
+        <div className={styles.heroOverline}>{t('period')}</div>
+        {/* No company goal statement exists in the data yet, so the heading
+            names the real period instead of an invented target. */}
+        <h2 className={styles.heroGoal}>{periodLabel || '—'}</h2>
 
         <div className={styles.heroProgressRow}>
           <span className={styles.heroProgressLabel}>{t('overallProgress')}</span>

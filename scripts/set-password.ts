@@ -27,7 +27,7 @@ const [emailArg, passwordArg] = process.argv.slice(2)
 function usage(message: string): never {
   console.error(`\n${message}\n`)
   console.error("Kullanım: npm run set-password -- <e-posta> '<yeni parola>'")
-  console.error("Örnek   : npm run set-password -- elif.cinar@nove.group 'CokGucluParola2026'\n")
+  console.error("Örnek   : npm run set-password -- kagan.ozturk@nove.group 'CokGucluParola2026'\n")
   process.exit(1)
 }
 

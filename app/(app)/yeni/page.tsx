@@ -7,7 +7,8 @@ import { requireUser } from '@/lib/auth/session'
 import { getDb } from '@/lib/db'
 import { departments } from '@/lib/db/schema'
 import { getAssignablePeople } from '@/lib/queries/people'
-import { periodParam, resolvePeriod } from '@/lib/queries/periods'
+import { activePeriodOf, resolveRange, type PeriodOption } from '@/lib/queries/range'
+import { allPeriods } from '@/lib/queries/tables'
 import { Wizard, type WizardDept } from './wizard'
 
 export default async function NewObjectivePage({
@@ -18,8 +19,26 @@ export default async function NewObjectivePage({
   const user = await requireUser()
   const db = await getDb()
 
-  const selection = await resolvePeriod(db, periodParam(await searchParams))
-  if (!selection) return <main className={shell.content}>Dönem tanımlı değil.</main>
+  const selection = await resolveRange(db, await searchParams)
+  // The open period is looked up among every period, independent of the
+  // range filter — a new objective always belongs to the period that is
+  // open right now, whatever the user has picked to view.
+  const everyPeriod: PeriodOption[] = (await allPeriods(db)).map((p) => ({
+    id: p.id,
+    code: p.code,
+    kind: p.kind,
+    state: p.state,
+    startsOn: p.startsOn,
+    endsOn: p.endsOn,
+  }))
+  const openPeriod = activePeriodOf(everyPeriod)
+  if (!openPeriod) {
+    return (
+      <main className={shell.content}>
+        Açık bir dönem yok. Yönetim ekranından bir dönemi aktif yapın.
+      </main>
+    )
+  }
 
   const [rows, people] = await Promise.all([
     db.select().from(departments).orderBy(asc(departments.sortOrder)),
@@ -35,17 +54,12 @@ export default async function NewObjectivePage({
 
   return (
     <>
-      <Topbar
-        overline="Yeni Objective"
-        title="Yeni Objective"
-        periods={selection.all}
-        activePeriod={selection.current.code}
-      />
+      <Topbar overline="Yeni Objective" title="Yeni Objective" selection={selection} />
       <main className={shell.content}>
         <Wizard
           depts={allowed}
           defaultDeptId={allowed[0]?.id ?? ''}
-          periodCode={selection.current.code}
+          periodCode={openPeriod.code}
           people={people}
         />
       </main>

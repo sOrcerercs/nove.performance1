@@ -10,6 +10,9 @@
 /* The trend line needs its area gradient to bleed past the plot box. */
 .svgOverflow { overflow: visible; }
 
+/* Explicit "no data yet" state — an empty series is expected, not broken. */
+.empty { color: var(--text-muted); font-size: 13px; padding: 12px 0; }
+
 /* --- shared axis furniture --- */
 .gridLine {
   stroke: var(--border);

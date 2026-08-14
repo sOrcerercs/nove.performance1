@@ -5,7 +5,7 @@ import { can } from '@/lib/auth/permissions'
 import { requireUser } from '@/lib/auth/session'
 import { getDb } from '@/lib/db'
 import { getHelpArticles } from '@/lib/queries/help'
-import { periodParam, resolvePeriod } from '@/lib/queries/periods'
+import { resolveRange } from '@/lib/queries/range'
 
 export default async function HelpPage({
   searchParams,
@@ -16,18 +16,13 @@ export default async function HelpPage({
   const db = await getDb()
 
   const [selection, articles] = await Promise.all([
-    resolvePeriod(db, periodParam(await searchParams)),
+    resolveRange(db, await searchParams),
     getHelpArticles(db),
   ])
 
   return (
     <>
-      <Topbar
-        overline="Yardım"
-        title="Kullanım kılavuzu"
-        periods={selection?.all ?? []}
-        activePeriod={selection?.current.code ?? ''}
-      />
+      <Topbar overline="Yardım" title="Kullanım kılavuzu" selection={selection} />
       <main className={shell.content}>
         <HelpClient articles={articles} canManage={can(user, 'manage:help')} />
       </main>

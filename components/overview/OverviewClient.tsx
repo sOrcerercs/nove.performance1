@@ -4,6 +4,7 @@ import { BarChart } from '@/components/charts/BarChart'
 import { DonutChart } from '@/components/charts/DonutChart'
 import { TrendChart, TrendLegend } from '@/components/charts/TrendChart'
 import { KpiCard } from '@/components/ui/KpiCard'
+import { formatAsOf } from '@/lib/domain/format'
 import { tx } from '@/lib/i18n/strings'
 import { usePrefs, type LayoutVariant } from '@/lib/prefs/PrefsProvider'
 import type { OverviewVm } from '@/lib/queries/overview'
@@ -18,8 +19,19 @@ const VARIANTS: { key: LayoutVariant; label: 'layoutHero' | 'layoutCockpit' | 'l
   { key: 'focus', label: 'layoutFocus' },
 ]
 
-export function OverviewClient({ vm }: { vm: OverviewVm }) {
+export function OverviewClient({
+  vm,
+  asOf,
+  today,
+}: {
+  vm: OverviewVm
+  /** The range's end. Produced server-side, never `new Date()` on the client. */
+  asOf: string
+  /** Produced via `todayInIstanbul(new Date())` on the server. */
+  today: string
+}) {
   const { t, lang, layout, setLayout } = usePrefs()
+  const asOfMonth = asOf.slice(0, 7)
 
   const kpis = (
     <div className={styles.kpiRow}>
@@ -78,7 +90,7 @@ export function OverviewClient({ vm }: { vm: OverviewVm }) {
       <div className={styles.card}>
         <h2 className={styles.cardTitle}>{t('attentionTitle')}</h2>
         <p className={styles.cardMeta}>{t('kpiOpenMeta')}</p>
-        <AttentionList items={vm.attention} />
+        <AttentionList items={vm.attention} asOfMonth={asOfMonth} />
       </div>
     </section>
   )
@@ -86,7 +98,19 @@ export function OverviewClient({ vm }: { vm: OverviewVm }) {
   return (
     <>
       <div className={styles.header}>
-        <h1 className={styles.h1}>{t('overviewTitle')}</h1>
+        <div className={styles.headerTitle}>
+          <h1 className={styles.h1}>{t('overviewTitle')}</h1>
+          {/* Rendered once, here, rather than inside `CompanyHero`: that
+              component only appears on the "hero" layout, which would leave
+              "cockpit" and "focus" showing cutoff-filtered numbers with no
+              cutoff notice at all. This header renders in all three. */}
+          {asOf < today ? <span className={styles.asOf}>{formatAsOf(asOf, lang)}</span> : null}
+          {vm.kpis.measuredKrs < vm.kpis.krs ? (
+            <span className={styles.measured}>
+              {vm.kpis.measuredKrs}/{vm.kpis.krs} {t('measuredKrs')}
+            </span>
+          ) : null}
+        </div>
         <div className={styles.variantSwitch}>
           <span className={styles.variantLabel}>{t('layout')}</span>
           <div className={styles.segmented} role="group" aria-label={t('layout')}>
@@ -109,7 +133,7 @@ export function OverviewClient({ vm }: { vm: OverviewVm }) {
           exactly as the prototype does. */}
       {layout === 'hero' ? (
         <>
-          <CompanyHero companyPct={vm.companyPct} stats={vm.kpis} />
+          <CompanyHero companyPct={vm.companyPct} stats={vm.kpis} periodCodes={vm.periodCodes} />
           {kpis}
           {departments}
           <section className={styles.section}>{charts}</section>
