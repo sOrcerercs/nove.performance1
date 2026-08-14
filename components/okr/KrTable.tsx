@@ -13,7 +13,15 @@ import styles from '@/app/(app)/okr.module.css'
  * row. The header cells carry `scope="col"` so each value is announced with
  * its column.
  */
-export function KrTable({ krs, caption }: { krs: KrVm[]; caption?: string }) {
+export function KrTable({
+  krs,
+  caption,
+  asOfMonth,
+}: {
+  krs: KrVm[]
+  caption?: string
+  asOfMonth: string
+}) {
   const { t } = usePrefs()
 
   return (
@@ -32,7 +40,7 @@ export function KrTable({ krs, caption }: { krs: KrVm[]; caption?: string }) {
         </thead>
         <tbody>
           {krs.map((kr) => (
-            <KrRow key={kr.id} kr={kr} />
+            <KrRow key={kr.id} kr={kr} asOfMonth={asOfMonth} />
           ))}
         </tbody>
       </table>

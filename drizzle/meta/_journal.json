@@ -15,6 +15,34 @@
       "when": 1785760465490,
       "tag": "0001_skinny_bromley",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1786371095488,
+      "tag": "0002_furry_bromley",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1786396591805,
+      "tag": "0003_free_vivisector",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1786398616001,
+      "tag": "0004_mean_goliath",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1786450618186,
+      "tag": "0005_material_gressill",
+      "breakpoints": true
     }
   ]
 }

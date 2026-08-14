@@ -34,8 +34,10 @@ const TABLES = [
   'objectives',
   'key_results',
   'checkins',
+  'kr_monthly_values',
   'login_attempts',
   'help_articles',
+  'app_settings',
   // Drizzle's own bookkeeping table lives in its own schema, not public.
 ] as const
 

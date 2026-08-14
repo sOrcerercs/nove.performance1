@@ -3,7 +3,7 @@ import { eq } from 'drizzle-orm'
 import { expect, test } from 'vitest'
 import type { SessionUser } from '@/lib/auth/permissions'
 import { createTestDb } from '@/lib/db'
-import { users } from '@/lib/db/schema'
+import { keyResults, users } from '@/lib/db/schema'
 import { seed } from '@/lib/db/seed'
 import type { Role } from '@/lib/domain/types'
 import {
@@ -28,11 +28,13 @@ async function seededWithPassword() {
   return { db, password }
 }
 
-const ADMIN_ID = 'u-elif.cinar'
-const OTHER_ADMIN_ID = 'u-nazli.er'
+// The three real accounts — all admins, no home department.
+const ADMIN_ID = 'u-kagan.ozturk'
+const OTHER_ADMIN_ID = 'u-oguzhan.kizilcan'
+const THIRD_ADMIN_ID = 'u-bahadir.temizer'
 
 const actor = (role: Role, id = ADMIN_ID): SessionUser => ({
-  id, name: 'Test', email: 't@nove.group', role, departmentId: 'ik',
+  id, name: 'Test', email: 't@nove.group', role, departmentId: null,
 })
 
 const NEW_PASSWORD = 'YeniParola2026!'
@@ -43,7 +45,7 @@ test('an admin creates an account with a hashed password', async () => {
   const db = await seeded()
   const res = await createUserAs(db, actor('admin'), {
     name: 'Yeni Yönetici', email: 'yeni@nove.group', role: 'admin',
-    departmentId: 'ik', password: NEW_PASSWORD,
+    departmentId: null, password: NEW_PASSWORD,
   })
   expect(res.ok).toBe(true)
   if (!res.ok) return
@@ -58,7 +60,7 @@ test('an admin creates an account with a hashed password', async () => {
 test('a staff record is created without any credential', async () => {
   const db = await seeded()
   const res = await createUserAs(db, actor('admin'), {
-    name: 'Yeni Personel', email: 'personel@nove.group', role: 'staff', departmentId: 'saha',
+    name: 'Yeni Personel', email: 'personel@nove.group', role: 'staff', departmentId: 'satis',
   })
   expect(res.ok).toBe(true)
   if (!res.ok) return
@@ -87,7 +89,7 @@ test('a short password is rejected', async () => {
 test('a duplicate email is refused rather than throwing', async () => {
   const db = await seeded()
   const res = await createUserAs(db, actor('admin'), {
-    name: 'Kopya', email: 'elif.cinar@nove.group', role: 'admin',
+    name: 'Kopya', email: 'kagan.ozturk@nove.group', role: 'admin',
     departmentId: null, password: NEW_PASSWORD,
   })
   expect(res.ok).toBe(false)
@@ -97,7 +99,7 @@ test('a duplicate email is refused rather than throwing', async () => {
 test('a non-admin cannot create users', async () => {
   const db = await seeded()
   for (const role of ['executive', 'staff'] as const) {
-    const res = await createUserAs(db, actor(role, 'u-genel.mudurluk'), {
+    const res = await createUserAs(db, actor(role, 'x-someone-else'), {
       name: 'X', email: `x-${role}@nove.group`, role: 'admin',
       departmentId: null, password: NEW_PASSWORD,
     })
@@ -127,11 +129,25 @@ test('you cannot remove your own admin rights', async () => {
 
 test('the last admin cannot be demoted', async () => {
   const db = await seeded()
-  // Demote the second admin first, leaving exactly one.
-  await setUserRoleAs(db, actor('admin'), { userId: OTHER_ADMIN_ID, role: 'staff' })
-  // Now try to demote the remaining one, acting as the other admin.
-  const res = await setUserRoleAs(db, actor('admin', OTHER_ADMIN_ID), {
-    userId: ADMIN_ID, role: 'staff',
+  // The seed carries three admins, not a fixed two, so this establishes the
+  // "exactly one admin left" precondition explicitly rather than assuming a
+  // count that could silently change with the seed. Demote every admin but
+  // one, acting as the survivor throughout.
+  const admins = await db.select().from(users).where(eq(users.role, 'admin'))
+  expect(admins.length).toBeGreaterThan(1)
+  const [survivor, actingAdmin, ...rest] = admins
+  if (!survivor || !actingAdmin) throw new Error('need at least two admins to set up this test')
+
+  for (const a of [actingAdmin, ...rest]) {
+    const demote = await setUserRoleAs(db, actor('admin', survivor.id), { userId: a.id, role: 'staff' })
+    expect(demote.ok, a.id).toBe(true)
+  }
+
+  // Exactly one admin now remains. Demoting them must be refused — acting as
+  // someone other than the survivor, so this exercises the "last admin" guard
+  // rather than the separate "cannot demote yourself" guard.
+  const res = await setUserRoleAs(db, actor('admin', actingAdmin.id), {
+    userId: survivor.id, role: 'staff',
   })
   expect(res.ok).toBe(false)
   if (!res.ok) expect(res.error).toContain('Son yönetici')
@@ -141,15 +157,24 @@ test('the last admin cannot be demoted', async () => {
 
 test('a user can be deactivated and reactivated', async () => {
   const db = await seeded()
+  // The real seed has only the three admins — deactivating one of them risks
+  // tripping the "last active admin" guard, so this plants a fresh staff
+  // record to exercise plain state toggling instead.
+  const created = await createUserAs(db, actor('admin'), {
+    name: 'Geçici Personel', email: 'gecici-personel@nove.group', role: 'staff', departmentId: null,
+  })
+  expect(created.ok).toBe(true)
+  if (!created.ok) return
+
   expect((await setUserStateAs(db, actor('admin'), {
-    userId: 'u-murat.sen', state: 'passive',
+    userId: created.data.id, state: 'passive',
   })).ok).toBe(true)
 
-  const [off] = await db.select().from(users).where(eq(users.id, 'u-murat.sen'))
+  const [off] = await db.select().from(users).where(eq(users.id, created.data.id))
   expect(off?.state).toBe('passive')
 
   expect((await setUserStateAs(db, actor('admin'), {
-    userId: 'u-murat.sen', state: 'active',
+    userId: created.data.id, state: 'active',
   })).ok).toBe(true)
 })
 
@@ -163,12 +188,16 @@ test('you cannot deactivate yourself', async () => {
 
 test('a person referenced by key results cannot be deleted', async () => {
   const db = await seeded()
-  // Murat Şen owns key results in the seed.
-  const res = await deleteUserAs(db, actor('admin'), { userId: 'u-murat.sen' })
+  // The real seed leaves every owner blank — nobody is referenced by
+  // anything yet — so the reference this guard checks for has to be created
+  // here, or the check would never fire and the test would prove nothing.
+  await db.update(keyResults).set({ ownerUserId: THIRD_ADMIN_ID }).where(eq(keyResults.id, 'k-msf-yorum'))
+
+  const res = await deleteUserAs(db, actor('admin'), { userId: THIRD_ADMIN_ID })
   expect(res.ok).toBe(false)
   if (!res.ok) expect(res.error).toContain('pasifleştir')
 
-  expect(await db.select().from(users).where(eq(users.id, 'u-murat.sen'))).toHaveLength(1)
+  expect(await db.select().from(users).where(eq(users.id, THIRD_ADMIN_ID))).toHaveLength(1)
 })
 
 test('an unreferenced person is deleted', async () => {
@@ -205,8 +234,16 @@ test('an admin resets another account password', async () => {
 
 test('a staff record cannot be given a password', async () => {
   const db = await seeded()
+  // The real seed has no staff records at all (all three accounts are
+  // admins), so one is planted here to exercise the guard.
+  const created = await createUserAs(db, actor('admin'), {
+    name: 'Personel', email: 'personel-parola@nove.group', role: 'staff', departmentId: null,
+  })
+  expect(created.ok).toBe(true)
+  if (!created.ok) return
+
   const res = await setUserPasswordAs(db, actor('admin'), {
-    userId: 'u-murat.sen', password: NEW_PASSWORD,
+    userId: created.data.id, password: NEW_PASSWORD,
   })
   expect(res.ok).toBe(false)
 })
@@ -236,9 +273,15 @@ test('the new password must differ from the current one', async () => {
   expect(res.ok).toBe(false)
 })
 
-test('an executive can still change their own password', async () => {
+test('an executive can still change their own password — self-service does not check role', async () => {
+  // `changeOwnPasswordAs` never calls `can()`; it only looks up the acting
+  // user's own row and checks the current password. There is no executive
+  // account in the real seed to prove this with, so the claim is demonstrated
+  // the same way regardless: a session that *claims* role 'executive' still
+  // succeeds, against a real account's password, because the function does
+  // not consult the role at all.
   const { db, password } = await seededWithPassword()
-  const res = await changeOwnPasswordAs(db, actor('executive', 'u-genel.mudurluk'), {
+  const res = await changeOwnPasswordAs(db, actor('executive', THIRD_ADMIN_ID), {
     currentPassword: password, newPassword: NEW_PASSWORD,
   })
   expect(res.ok).toBe(true)

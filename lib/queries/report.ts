@@ -1,8 +1,8 @@
 import type { Db } from '@/lib/db'
-import { companyPct, deptPct, krPct } from '@/lib/domain/progress'
+import { companyPct, deptPct, isMeasurable, krPct } from '@/lib/domain/progress'
 import { isOpenToDevelopment } from '@/lib/domain/status'
 import type { Confidence, Lang } from '@/lib/domain/types'
-import { allKrs, loadTree } from './tree'
+import { allKrs, loadTree, measuredKrsOf, measuredOnly } from './tree'
 
 /** One department line in the executive report's breakdown table. */
 export interface ReportRow {
@@ -42,8 +42,8 @@ export interface ReportTotals {
 }
 
 export interface ReportVm {
-  /** Null when the requested period does not exist. */
-  periodCode: string | null
+  /** Codes of the periods the range covers, oldest first. Empty when none. */
+  periodCodes: string[]
   rows: ReportRow[]
   openToDev: ReportOpenKr[]
   totals: ReportTotals
@@ -56,11 +56,25 @@ export interface ReportVm {
  * sortable table is a client component and the whole object crosses the
  * server/client boundary.
  */
-export async function getReport(db: Db, periodCode: string): Promise<ReportVm> {
-  const { period, depts } = await loadTree(db, periodCode)
+export async function getReport(
+  db: Db,
+  periodIds: readonly string[],
+  asOf?: string,
+): Promise<ReportVm> {
+  const { periods, depts } = await loadTree(db, periodIds, asOf)
+  // The company-wide "Gelişime Açık" band and the headline percentage below
+  // must read the same measured subset every row above them already does —
+  // otherwise `totals.openKrs` (built from `openToDev`) would not equal the
+  // sum of `rows[].openKrs`, and the report's own headline would diverge from
+  // the overview's `companyPct`, which already runs through `measuredOnly`.
+  const measured = measuredOnly(depts)
 
   const rows: ReportRow[] = depts.map((d) => {
     const krs = d.objectives.flatMap((o) => o.krs)
+    // Feeds both `openKrs` and `pct` below — the row still *lists* every key
+    // result (`krs.length`, just above, is deliberately unfiltered), but a key
+    // result with no measurement by the cutoff must not move either number.
+    const measuredObjectives = d.objectives.map((o) => ({ krs: measuredKrsOf(o.krs) }))
     return {
       slug: d.slug,
       emoji: d.emoji,
@@ -69,12 +83,23 @@ export async function getReport(db: Db, periodCode: string): Promise<ReportVm> {
       leadName: d.leadName,
       objectives: d.objectives.length,
       krs: krs.length,
-      openKrs: krs.filter((kr) => isOpenToDevelopment(krPct(kr))).length,
-      pct: deptPct(d.objectives),
+      // Unmeasurable key results (start === target) are excluded here for the
+      // same reason they are excluded from every average: krPct reports them
+      // as a flat 0%, which would otherwise rank them worst-first even though
+      // the row is elsewhere badged "Ölçülemiyor" and cannot be measured at
+      // all. A key result the cutoff has not reached yet is excluded for the
+      // same reason: it too reports the identical flat 0% (via `start`,
+      // `loadTree`'s no-data fallback), and would rank worst-first even
+      // though nobody has entered a figure for it yet — see `measuredObjectives`.
+      openKrs: measuredObjectives
+        .flatMap((o) => o.krs)
+        .filter((kr) => isMeasurable(kr) && isOpenToDevelopment(krPct(kr))).length,
+      pct: deptPct(measuredObjectives),
     }
   })
 
-  const openToDev: ReportOpenKr[] = allKrs(depts)
+  const openToDev: ReportOpenKr[] = allKrs(measured)
+    .filter(({ kr }) => isMeasurable(kr))
     .map(({ dept, kr }) => ({ dept, kr, pct: krPct(kr) }))
     .filter(({ pct }) => isOpenToDevelopment(pct))
     // Worst first; the id keeps the order stable when two key results tie.
@@ -95,14 +120,14 @@ export async function getReport(db: Db, periodCode: string): Promise<ReportVm> {
     }))
 
   return {
-    periodCode: period?.code ?? null,
+    periodCodes: periods.map((p) => p.code),
     rows,
     openToDev,
     totals: {
       objectives: rows.reduce((n, r) => n + r.objectives, 0),
       krs: rows.reduce((n, r) => n + r.krs, 0),
       openKrs: openToDev.length,
-      companyPct: companyPct(depts),
+      companyPct: companyPct(measured),
     },
   }
 }

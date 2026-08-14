@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { useToast } from '@/components/ui/ToastProvider'
@@ -8,7 +9,8 @@ import {
   objectiveDeletionImpact,
   updateObjective,
 } from '@/lib/actions/objectives'
-import type { Confidence } from '@/lib/domain/types'
+import { todayInIstanbul } from '@/lib/domain/dates'
+import type { Confidence, RollupRule } from '@/lib/domain/types'
 import { usePrefs } from '@/lib/prefs/PrefsProvider'
 import type { ObjectiveDetailVm } from '@/lib/queries/department'
 import type { AssignablePerson } from '@/lib/queries/people'
@@ -18,10 +20,17 @@ interface KrDraft {
   id?: string
   title: string
   start: string
-  current: string
+  /**
+   * Display only, never sent back: `current` is a derived summary of
+   * `kr_monthly_values` (see `lib/actions/core/monthly.ts`), not a field this
+   * form may set directly. `null` for a key result added in this session,
+   * which has no monthly rows yet.
+   */
+  currentDisplay: number | null
   target: string
   unit: string
   confidence: Confidence
+  rollup: RollupRule
   ownerUserId: string
 }
 
@@ -37,6 +46,20 @@ const CONFIDENCES: { key: Confidence; label: 'confHigh' | 'confMid' | 'confLow' 
   { key: 'mid', label: 'confMid' },
   { key: 'low', label: 'confLow' },
 ]
+
+const ROLLUPS: { key: RollupRule; label: 'rollupSum' | 'rollupAvg' | 'rollupLast' }[] = [
+  { key: 'sum', label: 'rollupSum' },
+  { key: 'avg', label: 'rollupAvg' },
+  { key: 'last', label: 'rollupLast' },
+]
+
+/**
+ * Computed once at module load, not per render: the "fix a wrong figure"
+ * link only needs to land on *a* sensible month, and the monthly entry
+ * screen already falls back sanely if this one is not in the open period by
+ * the time the link is clicked.
+ */
+const CURRENT_MONTH = todayInIstanbul().slice(0, 7)
 
 /** Department's own people first; cross-department assignment stays allowed. */
 function peopleFor(people: AssignablePerson[], deptId: string): AssignablePerson[] {
@@ -63,10 +86,11 @@ export function ObjectiveEditor({
       id: k.id,
       title: lang === 'en' ? k.titleEn : k.titleTr,
       start: String(k.start),
-      current: String(k.current),
+      currentDisplay: k.current,
       target: String(k.target),
       unit: k.unit,
       confidence: k.confidence,
+      rollup: k.rollup,
       ownerUserId: k.ownerUserId ?? '',
     })),
   )
@@ -95,10 +119,10 @@ export function ObjectiveEditor({
         ...(k.id ? { id: k.id } : {}),
         title: k.title,
         start: Number(k.start),
-        current: Number(k.current),
         target: Number(k.target),
         unit: k.unit,
         confidence: k.confidence,
+        rollup: k.rollup,
         ownerUserId: k.ownerUserId || null,
       })),
     })
@@ -227,11 +251,25 @@ export function ObjectiveEditor({
               />
             </div>
             <div>
+              {/* `current` is a derived summary (see `KrDraft.currentDisplay`'s
+                  comment) — shown for context, never editable here. A rollup
+                  change below recomputes it from the key result's monthly rows.
+                  A wrong figure is fixed on the monthly entry screen, which
+                  this link jumps to — pre-aimed at this key result and the
+                  current month — rather than left with no way out. */}
               <label className={styles.label}>{t('thCurrent')}</label>
               <input
-                className={styles.input} type="number" step="any" value={kr.current}
-                onChange={(e) => editKr(i, { current: e.target.value })}
+                className={styles.input} type="text" disabled readOnly
+                value={kr.currentDisplay === null ? '—' : String(kr.currentDisplay)}
               />
+              {kr.id ? (
+                <Link
+                  className={styles.currentLink}
+                  href={`/veri-girisi?ay=${CURRENT_MONTH}&kr=${encodeURIComponent(kr.id)}`}
+                >
+                  {t('fixInMonthlyEntry')}
+                </Link>
+              ) : null}
             </div>
             <div>
               <label className={styles.label}>{t('thTarget')}</label>
@@ -259,6 +297,18 @@ export function ObjectiveEditor({
               </select>
             </div>
             <div>
+              <label className={styles.label}>{t('fieldRollup')}</label>
+              <select
+                className={styles.input} value={kr.rollup}
+                aria-label={`${t('fieldKr')} ${i + 1} ${t('fieldRollup')}`}
+                onChange={(e) => editKr(i, { rollup: e.target.value as RollupRule })}
+              >
+                {ROLLUPS.map((r) => (
+                  <option key={r.key} value={r.key}>{t(r.label)}</option>
+                ))}
+              </select>
+            </div>
+            <div>
               <label className={styles.label}>{t('fieldOwner')}</label>
               <select
                 className={styles.input} value={kr.ownerUserId}
@@ -281,8 +331,8 @@ export function ObjectiveEditor({
           setKrs((prev) => [
             ...prev,
             {
-              title: '', start: '0', current: '0', target: '100',
-              unit: '%', confidence: 'mid', ownerUserId: '',
+              title: '', start: '0', currentDisplay: null, target: '100',
+              unit: '%', confidence: 'mid', rollup: 'last', ownerUserId: '',
             },
           ])
         }

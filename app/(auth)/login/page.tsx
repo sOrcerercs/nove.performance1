@@ -19,27 +19,12 @@ export default async function LoginPage() {
 
         <div className={styles.pitch}>
           <h2 className={styles.pitchTitle}>
-            Yıllık hedef, çeyreklik ölçüm, haftalık check-in.
+            Yıllık hedef, haftalık check-in.
           </h2>
           <p className={styles.pitchBody}>
-            Sekiz bölümün objective ve key resultlarını tek ekranda izleyin;
+            Bölümlerin objective ve key resultlarını tek ekranda izleyin;
             neyin beklenen seviyede, neyin gelişime açık olduğunu anında görün.
           </p>
-        </div>
-
-        <div className={styles.stats}>
-          <div>
-            <div className={styles.statValue}>8</div>
-            <div className={styles.statLabel}>Bölüm</div>
-          </div>
-          <div>
-            <div className={styles.statValue}>9</div>
-            <div className={styles.statLabel}>Objective</div>
-          </div>
-          <div>
-            <div className={styles.statValue}>25</div>
-            <div className={styles.statLabel}>Key result</div>
-          </div>
         </div>
       </section>
 

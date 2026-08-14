@@ -99,6 +99,7 @@ export async function seed(db: Db): Promise<{ password: string }> {
         confidence: k.conf,
         ownerUserId: userIdByName.get(k.owner) ?? null,
         updatedAt: daysAgo(k.updated),
+        rollup: k.rollup,
       })),
     ),
   )

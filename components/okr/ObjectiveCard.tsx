@@ -7,13 +7,14 @@ import { Topbar } from '@/components/shell/Topbar'
 import { Avatar } from '@/components/ui/Avatar'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import { StatusBadge } from '@/components/ui/StatusBadge'
+import { formatAsOf } from '@/lib/domain/format'
 import { STATUS_VARS, statusOf } from '@/lib/domain/status'
 import { tx } from '@/lib/i18n/strings'
 import { usePrefs } from '@/lib/prefs/PrefsProvider'
 import type { DeptDetailVm, ObjectiveDetailVm, ObjectiveVm } from '@/lib/queries/department'
 import shell from '@/components/shell/shell.module.css'
 import type { AssignablePerson } from '@/lib/queries/people'
-import type { PeriodOption } from '@/lib/queries/periods'
+import type { RangeSelection } from '@/lib/queries/range'
 import { ObjectiveEditor } from './ObjectiveEditor'
 import styles from '@/app/(app)/okr.module.css'
 
@@ -33,7 +34,13 @@ function countsLabel(objectives: ObjectiveVm[], lang: 'tr' | 'en'): string {
   return `${objectives.length} ${objWord} · ${krCount} KR`
 }
 
-export function ObjectiveCard({ objective }: { objective: ObjectiveVm }) {
+export function ObjectiveCard({
+  objective,
+  asOfMonth,
+}: {
+  objective: ObjectiveVm
+  asOfMonth: string
+}) {
   const { t, lang } = usePrefs()
   // Expanded by default, as in the prototype: the key results are the point of
   // the screen, the toggle is there to get them out of the way.
@@ -79,7 +86,7 @@ export function ObjectiveCard({ objective }: { objective: ObjectiveVm }) {
 
       {open ? (
         <div className={styles.krPanel} id={panelId}>
-          <KrTable krs={objective.krs} caption={`${title} — ${t('keyResults')}`} />
+          <KrTable krs={objective.krs} caption={`${title} — ${t('keyResults')}`} asOfMonth={asOfMonth} />
         </div>
       ) : null}
     </section>
@@ -88,23 +95,32 @@ export function ObjectiveCard({ objective }: { objective: ObjectiveVm }) {
 
 export function DepartmentScreen({
   dept,
-  periods,
-  activePeriod,
+  selection,
+  asOf,
+  today,
 }: {
   dept: DeptDetailVm
-  periods: PeriodOption[]
-  activePeriod: string
+  selection: RangeSelection
+  /** The cutoff the numbers were computed under — the range's end clamped to
+   *  today (`asOfCutoff`), not `selection.range.to` raw. Deriving it here from
+   *  `selection` again would let the markers measure against a future month
+   *  the figures beside them never saw. */
+  asOf: string
+  /** Produced server-side via `todayInIstanbul(new Date())` — never `new
+   *  Date()` here, which would risk a server/client hydration mismatch and
+   *  break the Europe/Istanbul convention "today" follows everywhere else. */
+  today: string
 }) {
   const { t, lang } = usePrefs()
   const name = tx({ tr: dept.nameTr, en: dept.nameEn }, lang)
+  const asOfMonth = asOf.slice(0, 7)
 
   return (
     <>
       <Topbar
         overline={t('departments')}
         title={`${dept.emoji} ${name}`}
-        periods={periods}
-        activePeriod={activePeriod}
+        selection={selection}
       />
 
       <div className={shell.content}>
@@ -127,6 +143,7 @@ export function DepartmentScreen({
                   {countsLabel(dept.objectives, lang)}
                   {dept.leadName ? ` · ${t('owner')}: ${dept.leadName}` : ''}
                 </span>
+                {asOf < today ? <span>{formatAsOf(asOf, lang)}</span> : null}
               </div>
             </div>
 
@@ -139,7 +156,7 @@ export function DepartmentScreen({
           {dept.objectives.length > 0 ? (
             <div className={styles.objectiveList}>
               {dept.objectives.map((o) => (
-                <ObjectiveCard key={o.id} objective={o} />
+                <ObjectiveCard key={o.id} objective={o} asOfMonth={asOfMonth} />
               ))}
             </div>
           ) : (
@@ -158,14 +175,15 @@ export function DepartmentScreen({
 
 export function ObjectiveScreen({
   obj,
-  periods,
-  activePeriod,
+  selection,
+  asOf,
   canEdit,
   people,
 }: {
   obj: ObjectiveDetailVm
-  periods: PeriodOption[]
-  activePeriod: string
+  selection: RangeSelection
+  /** The cutoff the numbers were computed under — see `DepartmentScreen`. */
+  asOf: string
   /** Server-decided; the actions re-check permission regardless. */
   canEdit: boolean
   people: AssignablePerson[]
@@ -175,14 +193,14 @@ export function ObjectiveScreen({
   const title = tx({ tr: obj.titleTr, en: obj.titleEn }, lang)
   const deptName = tx({ tr: obj.deptNameTr, en: obj.deptNameEn }, lang)
   const statusColor = STATUS_VARS[statusOf(obj.pct)].fg
+  const asOfMonth = asOf.slice(0, 7)
 
   return (
     <>
       <Topbar
         overline={t('objective')}
         title={title}
-        periods={periods}
-        activePeriod={activePeriod}
+        selection={selection}
       />
 
       <div className={shell.content}>
@@ -203,7 +221,7 @@ export function ObjectiveScreen({
                 <Avatar name={obj.ownerName} />
                 <span>{obj.ownerName}</span>
                 <span className={styles.note}>
-                  · {activePeriod} · {obj.krs.length} {t('keyResults')}
+                  · {obj.periodCode} · {obj.krs.length} {t('keyResults')}
                 </span>
               </div>
             </div>
@@ -223,7 +241,7 @@ export function ObjectiveScreen({
             <div className={styles.tableCardHead}>
               <h3 className={styles.tableCardTitle}>{t('keyResults')}</h3>
             </div>
-            <KrTable krs={obj.krs} />
+            <KrTable krs={obj.krs} asOfMonth={asOfMonth} />
           </section>
         </div>
       </div>

@@ -3,9 +3,10 @@ import { ObjectiveScreen } from '@/components/okr/ObjectiveCard'
 import { can } from '@/lib/auth/permissions'
 import { requireUser } from '@/lib/auth/session'
 import { getDb } from '@/lib/db'
+import { asOfCutoff } from '@/lib/domain/dates'
 import { getObjective } from '@/lib/queries/department'
 import { getAssignablePeople } from '@/lib/queries/people'
-import { periodParam, resolvePeriod } from '@/lib/queries/periods'
+import { resolveRange } from '@/lib/queries/range'
 
 export default async function ObjectivePage({
   params,
@@ -18,10 +19,20 @@ export default async function ObjectivePage({
   const { id } = await params
 
   const db = await getDb()
-  const selection = await resolvePeriod(db, periodParam(await searchParams))
-  if (!selection) notFound()
-
-  const obj = await getObjective(db, id, selection.current.code)
+  const selection = await resolveRange(db, await searchParams)
+  // Unlike the department screen, an objective has no "empty state" to fall
+  // back to when the range matches zero periods: it belongs to exactly one
+  // period, and rendering it would mean loading that period regardless of
+  // what the filter says, which is a bigger behaviour change than this fix is
+  // for. There is also no reachable path here the way there is for
+  // departments — the sidebar has no objective links, only department ones,
+  // and a zero-period department screen has no objective cards to click
+  // through either. So a bookmarked or typed objective URL still 404s when
+  // its range covers nothing; only a genuinely unknown id and this case are
+  // indistinguishable, same as before this fix.
+  // Never past today — see `asOfCutoff`.
+  const asOf = asOfCutoff(selection.range.to, new Date())
+  const obj = await getObjective(db, id, selection.periods.map((p) => p.id), asOf)
   if (!obj) notFound()
 
   const people = await getAssignablePeople(db)
@@ -29,8 +40,8 @@ export default async function ObjectivePage({
   return (
     <ObjectiveScreen
       obj={obj}
-      periods={selection.all}
-      activePeriod={selection.current.code}
+      selection={selection}
+      asOf={asOf}
       canEdit={can(user, 'edit:objective', { departmentId: obj.deptId })}
       people={people}
     />

@@ -12,6 +12,17 @@ import {
   type UpdatePeriodDatesInput,
 } from './core/periods'
 import {
+  setMonthlyValueAs,
+  setMonthlyValuesAs,
+  type SetMonthlyValueInput,
+  type SetMonthlyValueItemOutcome,
+  type SetMonthlyValueOutcome,
+} from './core/monthly'
+import {
+  setDefaultRangeStartAs,
+  type SetDefaultRangeStartInput,
+} from './core/settings'
+import {
   changeOwnPasswordAs,
   createUserAs,
   deleteUserAs,
@@ -118,6 +129,41 @@ export async function updatePeriodDates(
   const db = await getDb()
   const result = await updatePeriodDatesAs(db, user, input)
   if (result.ok) {
+    revalidatePath('/', 'layout')
+    revalidatePath('/yonetim')
+  }
+  return result
+}
+
+export async function setMonthlyValue(
+  input: SetMonthlyValueInput,
+): Promise<ActionResult<SetMonthlyValueOutcome>> {
+  const user = await requireUser()
+  const db = await getDb()
+  const result = await setMonthlyValueAs(db, user, input)
+  if (result.ok) revalidatePath('/', 'layout')
+  return result
+}
+
+export async function setMonthlyValues(
+  input: SetMonthlyValueInput[],
+): Promise<ActionResult<SetMonthlyValueItemOutcome[]>> {
+  const user = await requireUser()
+  const db = await getDb()
+  const result = await setMonthlyValuesAs(db, user, input)
+  if (result.ok) revalidatePath('/', 'layout')
+  return result
+}
+
+export async function setDefaultRangeStart(
+  input: SetDefaultRangeStartInput,
+): Promise<ActionResult<{ startsOn: string }>> {
+  const user = await requireUser()
+  const db = await getDb()
+  const result = await setDefaultRangeStartAs(db, user, input)
+  if (result.ok) {
+    // The default start decides what every screen opens on, so the whole shell
+    // has to be revalidated, not just the admin page.
     revalidatePath('/', 'layout')
     revalidatePath('/yonetim')
   }

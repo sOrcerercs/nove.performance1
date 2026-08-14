@@ -10,8 +10,9 @@ import {
 
 export const roleEnum = pgEnum('role', ['admin', 'executive', 'staff'])
 export const confidenceEnum = pgEnum('confidence', ['high', 'mid', 'low'])
+export const rollupEnum = pgEnum('rollup', ['sum', 'avg', 'last'])
 export const periodStateEnum = pgEnum('period_state', ['active', 'closed', 'planned'])
-export const periodKindEnum = pgEnum('period_kind', ['quarter', 'month'])
+export const periodKindEnum = pgEnum('period_kind', ['quarter', 'month', 'year'])
 // No invite flow: an admin creates the account with its password, so a user is
 // either active or deactivated.
 export const userStateEnum = pgEnum('user_state', ['active', 'passive'])
@@ -95,6 +96,11 @@ export const keyResults = pgTable('key_results', {
   target: doublePrecision('target').notNull(),
   unit: text('unit').notNull().default(''),
   confidence: confidenceEnum('confidence').notNull().default('mid'),
+  /**
+   * How this key result's monthly values collapse into a period figure. Written
+   * now, read by the monthly breakdown — see the Faz 2 design.
+   */
+  rollup: rollupEnum('rollup').notNull().default('last'),
   ownerUserId: text('owner_user_id').references(() => users.id),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 })
@@ -117,7 +123,39 @@ export const checkins = pgTable('checkins', {
   confidence: confidenceEnum('confidence').notNull(),
   note: text('note'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  /**
+   * Which month this check-in was recording. Null for rows written before
+   * monthly entry existed. Without it, correcting an old month would look like
+   * it happened today.
+   */
+  month: text('month'),
 })
+
+/**
+ * A key result's measured value for one month. This is the source of truth for
+ * progress; `key_results.current` is a derived summary of these rows.
+ *
+ * One row per key result per month — a correction overwrites rather than
+ * appends, and the audit trail of who changed what lives in `checkins`.
+ */
+export const krMonthlyValues = pgTable(
+  'kr_monthly_values',
+  {
+    id: text('id').primaryKey(),
+    keyResultId: text('key_result_id')
+      .notNull()
+      .references(() => keyResults.id, { onDelete: 'cascade' }),
+    /** `2026-08`. */
+    month: text('month').notNull(),
+    value: doublePrecision('value').notNull(),
+    authorUserId: text('author_user_id')
+      .notNull()
+      .references(() => users.id),
+    note: text('note'),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('kr_monthly_values_kr_month_unique').on(t.keyResultId, t.month)],
+)
 
 /**
  * Failed sign-in throttling.
@@ -156,10 +194,26 @@ export const helpArticles = pgTable('help_articles', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
+/**
+ * Application-wide settings as key/value rows.
+ *
+ * Key/value rather than a column per setting: the app has exactly one setting
+ * today (the default range start), and a typed column per future setting would
+ * mean a migration each time. Values are stored as text and validated by the
+ * action that writes them and again by the reader — a hand-edited row must not
+ * be able to break a render.
+ */
+export const appSettings = pgTable('app_settings', {
+  key: text('key').primaryKey(),
+  value: text('value').notNull(),
+})
+
 export type DepartmentRow = typeof departments.$inferSelect
 export type UserRow = typeof users.$inferSelect
 export type PeriodRow = typeof periods.$inferSelect
 export type ObjectiveRow = typeof objectives.$inferSelect
 export type KeyResultRow = typeof keyResults.$inferSelect
 export type CheckinRow = typeof checkins.$inferSelect
+export type KrMonthlyValueRow = typeof krMonthlyValues.$inferSelect
 export type HelpArticleRow = typeof helpArticles.$inferSelect
+export type AppSettingRow = typeof appSettings.$inferSelect

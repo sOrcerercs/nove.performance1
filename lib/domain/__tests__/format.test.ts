@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { formatNumber, formatValue, initials } from '../format'
+import { formatAsOf, formatDate, formatMonth, formatNumber, formatValue, initials } from '../format'
 
 test('turkish uses a comma decimal separator', () => {
   expect(formatNumber(5.2, 'tr')).toBe('5,2')
@@ -35,4 +35,30 @@ test('a unitless value is just the number', () => {
 test('initials take the first two words and drop the doctor title', () => {
   expect(initials('Elif Çınar')).toBe('EÇ')
   expect(initials('Dr. Hakan Yalın')).toBe('HY')
+})
+
+test('dates print in the local convention of each language', () => {
+  expect(formatDate('2026-08-10', 'tr')).toBe('10.08.2026')
+  expect(formatDate('2026-08-10', 'en')).toBe('Aug 10, 2026')
+})
+
+test('the day is not shifted by the server timezone', () => {
+  // Formatting must not route through a local-time Date, which would render
+  // 1 September as 31 August west of UTC.
+  expect(formatDate('2025-09-01', 'tr')).toBe('01.09.2025')
+  expect(formatDate('2025-09-01', 'en')).toBe('Sep 1, 2025')
+})
+
+test('a month reads as a short name and a year in both languages', () => {
+  expect(formatMonth('2025-09', 'tr')).toBe('Eyl 2025')
+  expect(formatMonth('2025-09', 'en')).toBe('Sep 2025')
+  expect(formatMonth('2026-01', 'tr')).toBe('Oca 2026')
+  expect(formatMonth('2026-12', 'en')).toBe('Dec 2026')
+})
+
+test('the cutoff phrase puts the date where each language wants it', () => {
+  // The word order differs, so this is a formatter and not an i18n string with
+  // a date appended.
+  expect(formatAsOf('2026-03-31', 'tr')).toBe('31.03.2026 itibarıyla')
+  expect(formatAsOf('2026-03-31', 'en')).toBe('as of Mar 31, 2026')
 })

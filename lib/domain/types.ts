@@ -27,8 +27,11 @@ export type LoginRole = (typeof LOGIN_ROLES)[number]
 export const canSignIn = (role: Role): role is LoginRole =>
   role === 'admin' || role === 'executive'
 
-/** OKR cycles come in two granularities; the period picker toggles between them. */
-export type PeriodKind = 'quarter' | 'month'
+/**
+ * OKR cycles. The company runs annual objectives, so `year` is what the seed
+ * creates; `quarter` and `month` remain for periods created by hand.
+ */
+export type PeriodKind = 'quarter' | 'month' | 'year'
 
 /** The minimum a key result needs to expose for progress to be computable. */
 export interface KrLike {
@@ -36,6 +39,18 @@ export interface KrLike {
   current: number
   target: number
 }
+
+/**
+ * How a key result's monthly values collapse into one period figure.
+ *
+ * `sum` — months add up (patients, leads, revenue).
+ * `avg` — months are averaged (scores, surveys, rates).
+ * `last` — the most recent month wins (annual measures, staged work).
+ *
+ * Used by the monthly breakdown; stored here so the rule travels with the key
+ * result and can be corrected from the UI.
+ */
+export type RollupRule = 'sum' | 'avg' | 'last'
 
 export interface Bilingual {
   tr: string

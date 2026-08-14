@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { companyPct, deptPct, krPct, objPct } from '../progress'
+import { companyPct, deptPct, isMeasurable, krPct, objPct } from '../progress'
 
 describe('krPct', () => {
   test('linear progress between start and target', () => {
@@ -66,5 +66,60 @@ describe('rollups are unweighted means of the level below', () => {
 
   test('companyPct is 0 when nothing has been set up yet', () => {
     expect(companyPct([])).toBe(0)
+  })
+})
+
+describe('a key result with no distance to cover cannot be measured', () => {
+  test('start equal to target is not measurable', () => {
+    expect(isMeasurable({ start: 77.5, current: 77.5, target: 77.5 })).toBe(false)
+    expect(isMeasurable({ start: 0, current: 0, target: 0 })).toBe(false)
+  })
+
+  test('a real span is measurable, in both directions', () => {
+    expect(isMeasurable({ start: 0, current: 0, target: 100 })).toBe(true)
+    expect(isMeasurable({ start: 110, current: 110, target: 100 })).toBe(true)
+  })
+
+  test('an unmeasurable key result is left out of the objective average', () => {
+    const measurable = { start: 0, current: 50, target: 100 }   // 50%
+    const unmeasurable = { start: 5, current: 5, target: 5 }    // no span
+
+    // The average is over the measurable one alone, not dragged to 25 by a zero.
+    expect(objPct([measurable, unmeasurable])).toBe(50)
+    expect(objPct([measurable])).toBe(50)
+  })
+
+  test('an objective whose key results are all unmeasurable is 0%, not NaN', () => {
+    expect(objPct([{ start: 5, current: 5, target: 5 }])).toBe(0)
+  })
+
+  test('an objective with nothing measurable contributes nothing to the department average', () => {
+    // Without excluding it, this would be mean(80, 0) = 40, not 80: the drag
+    // objPct's filter removed at the key-result level would come straight
+    // back at the objective level.
+    expect(
+      deptPct([
+        { krs: [{ start: 0, current: 80, target: 100 }] },
+        { krs: [{ start: 5, current: 5, target: 5 }] },
+      ]),
+    ).toBe(80)
+  })
+
+  test('deptPct is 0 when every objective is unmeasurable, not NaN', () => {
+    expect(deptPct([{ krs: [{ start: 5, current: 5, target: 5 }] }])).toBe(0)
+  })
+
+  test('a department with nothing measurable contributes nothing to the company average', () => {
+    // Without excluding it, this would be mean(60, 0) = 30, not 60.
+    expect(
+      companyPct([
+        { objectives: [{ krs: [{ start: 0, current: 60, target: 100 }] }] },
+        { objectives: [{ krs: [{ start: 5, current: 5, target: 5 }] }] },
+      ]),
+    ).toBe(60)
+  })
+
+  test('companyPct is 0 when every department has nothing measurable, not NaN', () => {
+    expect(companyPct([{ objectives: [{ krs: [{ start: 5, current: 5, target: 5 }] }] }])).toBe(0)
   })
 })

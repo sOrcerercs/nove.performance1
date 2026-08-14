@@ -6,6 +6,7 @@ import { checkins, departments, keyResults, objectives, periods } from '@/lib/db
 import { z } from 'zod'
 import { createObjectiveSchema, type CreateObjectiveInput } from '@/lib/validation/objective'
 import { fail, FORBIDDEN, ok, type ActionResult } from '../types'
+import { recomputeSummary } from './monthly'
 
 /**
  * The whole of "create an objective", with the acting user passed in.
@@ -109,10 +110,20 @@ export const updateObjectiveSchema = z.object({
         id: z.string().min(1).optional(),
         title: z.string().trim().min(3, 'Key result en az 3 karakter olmalı.').max(200),
         start: z.number().finite(),
-        current: z.number().finite(),
         target: z.number().finite(),
         unit: z.string().max(8).default(''),
         confidence: z.enum(['high', 'mid', 'low']),
+        // Deliberately no `current` here: `current` is a DERIVED SUMMARY of
+        // `kr_monthly_values` (see monthly.ts's file header) and this form has
+        // no business assigning it directly. A rollup change recomputes it
+        // from the key result's existing monthly rows via `recomputeSummary`;
+        // otherwise it is simply left alone.
+        //
+        // No `.default()` on purpose: a silently-defaulted rollup would let a
+        // caller that forgets this field quietly rewrite the rule (and, on a
+        // KR with existing monthly rows, its `current`) instead of failing
+        // loudly — every caller must say the rule it means.
+        rollup: z.enum(['sum', 'avg', 'last']),
         ownerUserId: z.string().min(1).nullable().default(null),
       }),
     )
@@ -148,15 +159,28 @@ export async function updateObjectiveFor(
 
   if (!can(user, 'edit:objective', { departmentId: row.deptId })) return fail(FORBIDDEN)
 
-  if (data.krs.some((k) => k.start === k.target)) {
-    return fail('Key result başlangıç ve hedef değeri aynı olamaz.')
-  }
-
   const existing = await db
-    .select({ id: keyResults.id })
+    .select({ id: keyResults.id, start: keyResults.start, target: keyResults.target, rollup: keyResults.rollup })
     .from(keyResults)
     .where(eq(keyResults.objectiveId, data.id))
   const existingIds = new Set(existing.map((k) => k.id))
+  const existingById = new Map(existing.map((k) => [k.id, k]))
+
+  // A key result whose start equals its target can never show progress, so
+  // turning one into that state is rejected here rather than silently
+  // rendering 0% forever. Rows that already arrived in that state (the real
+  // data has some, deliberately — the source figure was ambiguous and a human
+  // still has to supply the missing target) are grandfathered: they keep
+  // saving, and the badge in the UI, as long as the save does not newly put
+  // them there.
+  const newlyUnmeasurable = data.krs.find((k) => {
+    if (k.start !== k.target) return false
+    const prev = k.id ? existingById.get(k.id) : undefined
+    return !prev || prev.start !== prev.target
+  })
+  if (newlyUnmeasurable) {
+    return fail(`"${newlyUnmeasurable.title}" için başlangıç ve hedef aynı olamaz — bir hedef girin.`)
+  }
 
   // An id the caller does not own must not be adoptable into this objective.
   const submittedIds = data.krs.flatMap((k) => (k.id ? [k.id] : []))
@@ -184,31 +208,51 @@ export async function updateObjectiveFor(
 
     for (const k of data.krs) {
       if (k.id) {
+        const prev = existingById.get(k.id)
+
         await tx
           .update(keyResults)
           .set({
             titleTr: k.title,
             titleEn: k.title,
             start: k.start,
-            current: k.current,
             target: k.target,
             unit: k.unit ?? '',
             confidence: k.confidence,
+            rollup: k.rollup,
             ownerUserId: k.ownerUserId ?? data.ownerUserId ?? row.objective.ownerUserId,
             updatedAt: now,
           })
           .where(eq(keyResults.id, k.id))
+
+        // The monthly rows are untouched either way. `recomputeSummary`
+        // itself decides what, if anything, changes: when this key result
+        // has monthly rows on file, the rollup rule decides how they
+        // collapse; when it has none, `start` decides what "not started"
+        // means. `target` never needs this — `current`'s derivation (the
+        // rollup of the rows, or the zero-rows fallback to `start`) does not
+        // depend on `target` in either branch, so a target-only edit is
+        // deliberately not a trigger here.
+        if (prev && (prev.rollup !== k.rollup || prev.start !== k.start)) {
+          await recomputeSummary(tx, k.id, { priorStart: prev.start })
+        }
       } else {
+        // A brand-new key result has no monthly rows yet, so its summary is
+        // simply its start — the same value `recomputeSummary` would derive
+        // for zero filled months. Writing it directly here is the insert
+        // exemption Task 2's scan already carries (an insert is not a second
+        // writer of the derived summary), not a new one.
         await tx.insert(keyResults).values({
           id: `k-${randomUUID()}`,
           objectiveId: data.id,
           titleTr: k.title,
           titleEn: k.title,
           start: k.start,
-          current: k.current,
+          current: k.start,
           target: k.target,
           unit: k.unit ?? '',
           confidence: k.confidence,
+          rollup: k.rollup,
           ownerUserId: k.ownerUserId ?? data.ownerUserId ?? row.objective.ownerUserId,
           updatedAt: now,
         })

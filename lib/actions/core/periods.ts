@@ -6,27 +6,31 @@ import { periods } from '@/lib/db/schema'
 import type { PeriodKind } from '@/lib/domain/types'
 import { fail, FORBIDDEN, ok, type ActionResult } from '../types'
 
-/** `2026-Q3` for a quarter, `2026-08` for a month. */
+/** `2026-Q3` for a quarter, `2026-08` for a month, `2026-FY` for a fiscal year. */
 const QUARTER_CODE = /^\d{4}-Q[1-4]$/
 const MONTH_CODE = /^\d{4}-(0[1-9]|1[0-2])$/
+const YEAR_CODE = /^\d{4}-FY$/
 
 export const createPeriodSchema = z
   .object({
     code: z.string().trim().min(1, 'Dönem kodu gerekli.').max(16),
-    kind: z.enum(['quarter', 'month']),
+    kind: z.enum(['quarter', 'month', 'year']),
     startsOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Tarih YYYY-AA-GG olmalı.'),
     endsOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Tarih YYYY-AA-GG olmalı.'),
   })
   .superRefine((v, ctx) => {
-    const pattern = v.kind === 'quarter' ? QUARTER_CODE : MONTH_CODE
+    const pattern =
+      v.kind === 'quarter' ? QUARTER_CODE
+      : v.kind === 'month' ? MONTH_CODE
+      : YEAR_CODE
     if (!pattern.test(v.code)) {
       ctx.addIssue({
         code: 'custom',
         path: ['code'],
         message:
-          v.kind === 'quarter'
-            ? 'Çeyrek kodu 2026-Q3 biçiminde olmalı.'
-            : 'Ay kodu 2026-08 biçiminde olmalı.',
+          v.kind === 'quarter' ? 'Çeyrek kodu 2026-Q3 biçiminde olmalı.'
+          : v.kind === 'month' ? 'Ay kodu 2026-08 biçiminde olmalı.'
+          : 'Mali yıl kodu 2026-FY biçiminde olmalı.',
       })
     }
     if (v.endsOn <= v.startsOn) {
@@ -84,19 +88,14 @@ export async function setPeriodStateAs(
   if (!target) return fail('Dönem bulunamadı.')
 
   await db.transaction(async (tx) => {
-    // At most one active period per granularity: `resolvePeriod` opens the
-    // active one, and two of the same kind would make that pick arbitrary.
+    // At most one active period, full stop. The open period is what new
+    // objectives and check-ins attach to, so two of them — even of different
+    // kinds — would make that choice arbitrary.
     if (parsed.data.state === 'active') {
       await tx
         .update(periods)
         .set({ state: 'closed' })
-        .where(
-          and(
-            eq(periods.kind, target.kind),
-            eq(periods.state, 'active'),
-            ne(periods.id, target.id),
-          ),
-        )
+        .where(and(eq(periods.state, 'active'), ne(periods.id, target.id)))
     }
     await tx.update(periods).set({ state: parsed.data.state }).where(eq(periods.id, target.id))
   })

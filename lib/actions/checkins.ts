@@ -20,6 +20,9 @@ export async function submitCheckin(
     revalidatePath(`/bolum/${result.data.deptSlug}`)
     revalidatePath(`/objective/${result.data.objectiveId}`)
     revalidatePath('/rapor')
+    // The check-in now writes a `kr_monthly_values` row for the current
+    // month, which the monthly entry screen reads.
+    revalidatePath('/veri-girisi')
   }
   return result
 }
