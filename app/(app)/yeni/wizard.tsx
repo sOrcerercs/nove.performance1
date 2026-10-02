@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { useToast } from '@/components/ui/ToastProvider'
 import { createObjective } from '@/lib/actions/objectives'
+import type { RollupRule } from '@/lib/domain/types'
 import { tx } from '@/lib/i18n/strings'
 import { usePrefs } from '@/lib/prefs/PrefsProvider'
 import type { AssignablePerson } from '@/lib/queries/people'
@@ -36,12 +37,20 @@ interface KrDraft {
   current: string
   target: string
   unit: string
+  /** Empty until chosen: there is deliberately no default rule. */
+  rollup: RollupRule | ''
   ownerUserId: string
 }
 
 const emptyKr = (): KrDraft => ({
-  title: '', start: '0', current: '', target: '100', unit: '%', ownerUserId: '',
+  title: '', start: '0', current: '', target: '100', unit: '%', rollup: '', ownerUserId: '',
 })
+
+const ROLLUPS: { key: RollupRule; label: 'rollupSum' | 'rollupAvg' | 'rollupLast' }[] = [
+  { key: 'sum', label: 'rollupSum' },
+  { key: 'avg', label: 'rollupAvg' },
+  { key: 'last', label: 'rollupLast' },
+]
 
 const MAX_KRS = 5
 
@@ -71,7 +80,8 @@ export function Wizard({
   const hint = titleHint(title)
   // Mirrors the server schema: a title plus at least one complete key result.
   const filledKrs = krs.filter((k) => k.title.trim().length >= 3)
-  const isValid = title.trim().length > 0 && filledKrs.length >= 1
+  const rulesMissing = filledKrs.some((k) => k.rollup === '')
+  const isValid = title.trim().length > 0 && filledKrs.length >= 1 && !rulesMissing
 
   const editKr = (i: number, patch: Partial<KrDraft>) =>
     setKrs((prev) => prev.map((k, j) => (j === i ? { ...k, ...patch } : k)))
@@ -92,6 +102,7 @@ export function Wizard({
         current: k.current.trim() === '' ? undefined : Number(k.current),
         target: Number(k.target),
         unit: k.unit,
+        rollup: k.rollup as RollupRule, // guaranteed by isValid
         ownerUserId: k.ownerUserId || null,
       })),
     })
@@ -256,6 +267,22 @@ export function Wizard({
                   />
                 </div>
                 <div>
+                  <label className={styles.label}>{t('fieldRollup')}</label>
+                  <select
+                    className={styles.select}
+                    value={kr.rollup}
+                    required
+                    aria-label={`${t('fieldKr')} ${i + 1} ${t('fieldRollup')}`}
+                    aria-invalid={kr.title.trim().length >= 3 && kr.rollup === '' ? true : undefined}
+                    onChange={(e) => editKr(i, { rollup: e.target.value as RollupRule })}
+                  >
+                    <option value="" disabled>{t('chooseRule')}</option>
+                    {ROLLUPS.map((r) => (
+                      <option key={r.key} value={r.key}>{t(r.label)}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
                   <label className={styles.label}>{t('fieldOwner')}</label>
                   <select
                     className={styles.select}
@@ -284,6 +311,7 @@ export function Wizard({
           <p className={styles.countHint}>
             {t('krCountHint')} · <strong>{t('thCurrent')}</strong> {t('currentBlankNote')}
           </p>
+          <p className={styles.countHint}>{t('rollupHint')}</p>
 
           {error ? <p className={styles.error} role="alert">{error}</p> : null}
 
@@ -294,7 +322,7 @@ export function Wizard({
             <span
               className={`${styles.validation} ${isValid ? styles.validationOk : styles.validationMissing}`}
             >
-              {isValid ? t('validationReady') : t('validationMissing')}
+              {isValid ? t('validationReady') : rulesMissing ? t('ruleMissing') : t('validationMissing')}
             </span>
             <div className={styles.footerSpacer} />
             <button

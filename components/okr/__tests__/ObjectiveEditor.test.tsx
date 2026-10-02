@@ -117,3 +117,18 @@ test('a key result added in this session, with no monthly rows yet, offers no su
   // Two key results now: the seeded one (linkable) and the new one (not).
   expect(screen.getAllByText('fixInMonthlyEntry')).toHaveLength(1)
 })
+
+test('a key result added here cannot be saved until its rule is chosen — no silent "last"', () => {
+  render(<ObjectiveEditor obj={OBJ} people={[]} />)
+  fireEvent.click(screen.getByText('edit'))
+  fireEvent.click(screen.getByText(/addKr/))
+  fireEvent.change(screen.getByLabelText('fieldKr 2'), { target: { value: 'Yeni ölçülebilir sonuç' } })
+
+  const save = screen.getByRole('button', { name: 'save' })
+  const rule = screen.getByLabelText('fieldKr 2 fieldRollup') as HTMLSelectElement
+  expect(rule.value).toBe('')
+  expect((save as HTMLButtonElement).disabled).toBe(true)
+
+  fireEvent.change(rule, { target: { value: 'sum' } })
+  expect((save as HTMLButtonElement).disabled).toBe(false)
+})
