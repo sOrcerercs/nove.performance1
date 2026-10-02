@@ -4,7 +4,18 @@ import { z } from 'zod'
 import { can, type SessionUser } from '@/lib/auth/permissions'
 import type { Db } from '@/lib/db'
 import { checkins, departments, keyResults, objectives, users } from '@/lib/db/schema'
-import { fail, FORBIDDEN, ok, type ActionResult } from '../types'
+import { fail, FORBIDDEN, fromIssue, msg, ok, type ActionResult } from '../types'
+
+/** Validation messages; the schemas carry `.tr`, `fromIssue` maps it back. */
+const M = {
+  slugShort: msg('Kısa ad en az 2 karakter olmalı.', 'Short name must be at least 2 characters.'),
+  slugChars: msg(
+    'Kısa ad yalnızca küçük harf, rakam ve tire içerebilir.',
+    'Short name can only contain lowercase letters, digits and hyphens.',
+  ),
+  nameShort: msg('Bölüm adı en az 2 karakter olmalı.', 'Department name must be at least 2 characters.'),
+  emojiRequired: msg('Emoji gerekli.', 'Emoji is required.'),
+}
 
 /* ------------------------------------------------------------------ *
  * Department management.
@@ -18,15 +29,15 @@ const slugSchema = z
   .string()
   .trim()
   .toLowerCase()
-  .min(2, 'Kısa ad en az 2 karakter olmalı.')
+  .min(2, M.slugShort.tr)
   .max(40)
-  .regex(/^[a-z0-9-]+$/, 'Kısa ad yalnızca küçük harf, rakam ve tire içerebilir.')
+  .regex(/^[a-z0-9-]+$/, M.slugChars.tr)
 
-const nameSchema = z.string().trim().min(2, 'Bölüm adı en az 2 karakter olmalı.').max(80)
+const nameSchema = z.string().trim().min(2, M.nameShort.tr).max(80)
 
 export const createDepartmentSchema = z.object({
   slug: slugSchema,
-  emoji: z.string().trim().min(1, 'Emoji gerekli.').max(8),
+  emoji: z.string().trim().min(1, M.emojiRequired.tr).max(8),
   nameTr: nameSchema,
   nameEn: nameSchema,
   leadUserId: z.string().min(1).nullable().default(null),
@@ -34,7 +45,7 @@ export const createDepartmentSchema = z.object({
 
 export const updateDepartmentSchema = z.object({
   id: z.string().min(1),
-  emoji: z.string().trim().min(1, 'Emoji gerekli.').max(8),
+  emoji: z.string().trim().min(1, M.emojiRequired.tr).max(8),
   nameTr: nameSchema,
   nameEn: nameSchema,
   leadUserId: z.string().min(1).nullable().default(null),
@@ -51,7 +62,7 @@ export async function createDepartmentAs(
   if (!can(actor, 'manage:departments')) return fail(FORBIDDEN)
 
   const parsed = createDepartmentSchema.safeParse(input)
-  if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Girdi geçersiz.')
+  if (!parsed.success) return fail(fromIssue(parsed.error.issues[0]?.message, M))
   const data = parsed.data
 
   const [clash] = await db
@@ -59,7 +70,7 @@ export async function createDepartmentAs(
     .from(departments)
     .where(eq(departments.slug, data.slug))
     .limit(1)
-  if (clash) return fail('Bu kısa ad zaten kullanılıyor.')
+  if (clash) return fail(msg('Bu kısa ad zaten kullanılıyor.', 'This short name is already in use.'))
 
   // Appended to the end of the sidebar rather than inserted mid-list.
   const [last] = await db
@@ -96,11 +107,11 @@ export async function updateDepartmentAs(
   if (!can(actor, 'manage:departments')) return fail(FORBIDDEN)
 
   const parsed = updateDepartmentSchema.safeParse(input)
-  if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Girdi geçersiz.')
+  if (!parsed.success) return fail(fromIssue(parsed.error.issues[0]?.message, M))
   const data = parsed.data
 
   const [dept] = await db.select().from(departments).where(eq(departments.id, data.id)).limit(1)
-  if (!dept) return fail('Bölüm bulunamadı.')
+  if (!dept) return fail(msg('Bölüm bulunamadı.', 'Department not found.'))
 
   await db
     .update(departments)
@@ -137,7 +148,7 @@ export async function describeDepartmentDeletion(
     .from(departments)
     .where(eq(departments.id, departmentId))
     .limit(1)
-  if (!dept) return fail('Bölüm bulunamadı.')
+  if (!dept) return fail(msg('Bölüm bulunamadı.', 'Department not found.'))
 
   const objRows = await db
     .select({ id: objectives.id })
@@ -195,7 +206,7 @@ export async function deleteDepartmentAs(
   if (!can(actor, 'manage:departments')) return fail(FORBIDDEN)
 
   const [dept] = await db.select().from(departments).where(eq(departments.id, input.id)).limit(1)
-  if (!dept) return fail('Bölüm bulunamadı.')
+  if (!dept) return fail(msg('Bölüm bulunamadı.', 'Department not found.'))
 
   const [objCount] = await db
     .select({ n: count() })
@@ -204,7 +215,10 @@ export async function deleteDepartmentAs(
 
   if (Number(objCount?.n ?? 0) > 0) {
     return fail(
-      `Bu bölümde ${objCount?.n} objective var. Silmek performans geçmişini de siler — önce objective'leri kaldır.`,
+      msg(
+        `Bu bölümde ${objCount?.n} objective var. Silmek performans geçmişini de siler — önce objective'leri kaldır.`,
+        `This department has ${objCount?.n} ${Number(objCount?.n) === 1 ? 'objective' : 'objectives'}. Deleting it also deletes their performance history — remove the objectives first.`,
+      ),
     )
   }
 
@@ -238,14 +252,14 @@ export async function moveDepartmentAs(
 
   const rows = await db.select().from(departments).orderBy(departments.sortOrder)
   const index = rows.findIndex((d) => d.id === input.id)
-  if (index === -1) return fail('Bölüm bulunamadı.')
+  if (index === -1) return fail(msg('Bölüm bulunamadı.', 'Department not found.'))
 
   const swapWith = input.direction === 'up' ? index - 1 : index + 1
   if (swapWith < 0 || swapWith >= rows.length) return ok({ id: input.id })
 
   const a = rows[index]
   const b = rows[swapWith]
-  if (!a || !b) return fail('Bölüm bulunamadı.')
+  if (!a || !b) return fail(msg('Bölüm bulunamadı.', 'Department not found.'))
 
   await db.transaction(async (tx) => {
     await tx.update(departments).set({ sortOrder: b.sortOrder }).where(eq(departments.id, a.id))

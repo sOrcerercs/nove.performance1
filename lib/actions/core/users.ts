@@ -6,7 +6,17 @@ import { can, type SessionUser } from '@/lib/auth/permissions'
 import type { Db } from '@/lib/db'
 import { checkins, keyResults, objectives, users } from '@/lib/db/schema'
 import { canSignIn, type Role } from '@/lib/domain/types'
-import { fail, FORBIDDEN, ok, type ActionResult } from '../types'
+import { fail, FORBIDDEN, fromIssue, msg, ok, type ActionResult } from '../types'
+
+/** Validation messages; the schemas carry `.tr`, `fromIssue` maps it back. */
+const M = {
+  nameShort: msg('İsim en az 2 karakter olmalı.', 'Name must be at least 2 characters.'),
+  nameLong: msg('İsim çok uzun.', 'Name is too long.'),
+  emailInvalid: msg('Geçerli bir e-posta gir.', 'Enter a valid email.'),
+  passwordShort: msg('Parola en az 12 karakter olmalı.', 'Password must be at least 12 characters.'),
+  passwordLong: msg('Parola çok uzun.', 'Password is too long.'),
+  passwordRequired: msg('Parola gerekli.', 'Password is required.'),
+}
 
 /* ------------------------------------------------------------------ *
  * These cores take the acting user as an argument, so they must NOT live in a
@@ -20,14 +30,14 @@ const roleSchema = z.enum(['admin', 'executive', 'staff'])
 const nameSchema = z
   .string()
   .trim()
-  .min(2, 'İsim en az 2 karakter olmalı.')
-  .max(120, 'İsim çok uzun.')
+  .min(2, M.nameShort.tr)
+  .max(120, M.nameLong.tr)
 
 const emailSchema = z
   .string()
   .trim()
   .toLowerCase()
-  .email('Geçerli bir e-posta gir.')
+  .email(M.emailInvalid.tr)
   .max(160)
 
 /**
@@ -36,8 +46,8 @@ const emailSchema = z
  */
 const passwordSchema = z
   .string()
-  .min(12, 'Parola en az 12 karakter olmalı.')
-  .max(200, 'Parola çok uzun.')
+  .min(12, M.passwordShort.tr)
+  .max(200, M.passwordLong.tr)
 
 const BCRYPT_ROUNDS = 10
 
@@ -57,7 +67,7 @@ export const createUserSchema = z
         ctx.addIssue({
           code: 'custom',
           path: ['password'],
-          message: parsed.error.issues[0]?.message ?? 'Parola gerekli.',
+          message: parsed.error.issues[0]?.message ?? M.passwordRequired.tr,
         })
       }
     }
@@ -82,11 +92,11 @@ export async function createUserAs(
   if (!can(actor, 'manage:users')) return fail(FORBIDDEN)
 
   const parsed = createUserSchema.safeParse(input)
-  if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Girdi geçersiz.')
+  if (!parsed.success) return fail(fromIssue(parsed.error.issues[0]?.message, M))
   const data = parsed.data
 
   const [existing] = await db.select().from(users).where(eq(users.email, data.email)).limit(1)
-  if (existing) return fail('Bu e-posta zaten kayıtlı.')
+  if (existing) return fail(msg('Bu e-posta zaten kayıtlı.', 'This email is already registered.'))
 
   const id = `u-${randomUUID()}`
   await db.insert(users).values({
@@ -113,18 +123,18 @@ export async function setUserRoleAs(
   if (!can(actor, 'manage:users')) return fail(FORBIDDEN)
 
   const parsed = z.object({ userId: z.string().min(1), role: roleSchema }).safeParse(input)
-  if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Girdi geçersiz.')
+  if (!parsed.success) return fail(fromIssue(parsed.error.issues[0]?.message, M))
   const { userId, role } = parsed.data
 
   const [target] = await db.select().from(users).where(eq(users.id, userId)).limit(1)
-  if (!target) return fail('Kullanıcı bulunamadı.')
+  if (!target) return fail(msg('Kullanıcı bulunamadı.', 'User not found.'))
 
   // Demoting the last admin would lock everyone out of user management.
   if (target.role === 'admin' && role !== 'admin' && (await otherActiveAdmins(db, userId)) === 0) {
-    return fail('Son yönetici hesabının rolü değiştirilemez.')
+    return fail(msg('Son yönetici hesabının rolü değiştirilemez.', "The last admin account's role can't be changed."))
   }
   if (target.id === actor.id && role !== 'admin') {
-    return fail('Kendi yönetici yetkini kaldıramazsın.')
+    return fail(msg('Kendi yönetici yetkini kaldıramazsın.', "You can't remove your own admin role."))
   }
 
   await db
@@ -150,22 +160,22 @@ export async function setUserStateAs(
   const parsed = z
     .object({ userId: z.string().min(1), state: z.enum(['active', 'passive']) })
     .safeParse(input)
-  if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Girdi geçersiz.')
+  if (!parsed.success) return fail(fromIssue(parsed.error.issues[0]?.message, M))
   const { userId, state } = parsed.data
 
   if (userId === actor.id && state === 'passive') {
-    return fail('Kendi hesabını pasifleştiremezsin.')
+    return fail(msg('Kendi hesabını pasifleştiremezsin.', "You can't deactivate your own account."))
   }
 
   const [target] = await db.select().from(users).where(eq(users.id, userId)).limit(1)
-  if (!target) return fail('Kullanıcı bulunamadı.')
+  if (!target) return fail(msg('Kullanıcı bulunamadı.', 'User not found.'))
 
   if (
     target.role === 'admin' &&
     state === 'passive' &&
     (await otherActiveAdmins(db, userId)) === 0
   ) {
-    return fail('Son aktif yönetici pasifleştirilemez.')
+    return fail(msg('Son aktif yönetici pasifleştirilemez.', "The last active admin can't be deactivated."))
   }
 
   await db.update(users).set({ state }).where(eq(users.id, userId))
@@ -185,13 +195,13 @@ export async function deleteUserAs(
   input: { userId: string },
 ): Promise<ActionResult<{ id: string }>> {
   if (!can(actor, 'manage:users')) return fail(FORBIDDEN)
-  if (input.userId === actor.id) return fail('Kendi hesabını silemezsin.')
+  if (input.userId === actor.id) return fail(msg('Kendi hesabını silemezsin.', "You can't delete your own account."))
 
   const [target] = await db.select().from(users).where(eq(users.id, input.userId)).limit(1)
-  if (!target) return fail('Kullanıcı bulunamadı.')
+  if (!target) return fail(msg('Kullanıcı bulunamadı.', 'User not found.'))
 
   if (target.role === 'admin' && (await otherActiveAdmins(db, input.userId)) === 0) {
-    return fail('Son yönetici hesabı silinemez.')
+    return fail(msg('Son yönetici hesabı silinemez.', "The last admin account can't be deleted."))
   }
 
   const [krs, objs, chks] = await Promise.all([
@@ -204,7 +214,10 @@ export async function deleteUserAs(
 
   if (referenced > 0) {
     return fail(
-      `Bu kişi ${referenced} kayıtta sorumlu görünüyor. Silmek yerine pasifleştir.`,
+      msg(
+        `Bu kişi ${referenced} kayıtta sorumlu görünüyor. Silmek yerine pasifleştir.`,
+        `This person is listed as owner on ${referenced} ${referenced === 1 ? 'record' : 'records'}. Deactivate them instead of deleting.`,
+      ),
     )
   }
 
@@ -223,12 +236,12 @@ export async function setUserPasswordAs(
   const parsed = z
     .object({ userId: z.string().min(1), password: passwordSchema })
     .safeParse(input)
-  if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Girdi geçersiz.')
+  if (!parsed.success) return fail(fromIssue(parsed.error.issues[0]?.message, M))
 
   const [target] = await db.select().from(users).where(eq(users.id, parsed.data.userId)).limit(1)
-  if (!target) return fail('Kullanıcı bulunamadı.')
+  if (!target) return fail(msg('Kullanıcı bulunamadı.', 'User not found.'))
   if (!canSignIn(target.role)) {
-    return fail('Personel kayıtlarının parolası olmaz. Önce rolünü değiştir.')
+    return fail(msg('Personel kayıtlarının parolası olmaz. Önce rolünü değiştir.', "Staff records don't have a password. Change the role first."))
   }
 
   await db
@@ -256,16 +269,16 @@ export async function changeOwnPasswordAs(
   const parsed = z
     .object({ currentPassword: z.string().min(1), newPassword: passwordSchema })
     .safeParse(input)
-  if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Girdi geçersiz.')
+  if (!parsed.success) return fail(fromIssue(parsed.error.issues[0]?.message, M))
 
   const [me] = await db.select().from(users).where(eq(users.id, actor.id)).limit(1)
-  if (!me?.passwordHash) return fail('Hesap bulunamadı.')
+  if (!me?.passwordHash) return fail(msg('Hesap bulunamadı.', 'Account not found.'))
 
   const okCurrent = await bcrypt.compare(parsed.data.currentPassword, me.passwordHash)
-  if (!okCurrent) return fail('Mevcut parola hatalı.')
+  if (!okCurrent) return fail(msg('Mevcut parola hatalı.', 'The current password is incorrect.'))
 
   if (parsed.data.currentPassword === parsed.data.newPassword) {
-    return fail('Yeni parola mevcut parolayla aynı olamaz.')
+    return fail(msg('Yeni parola mevcut parolayla aynı olamaz.', "The new password can't be the same as the current one."))
   }
 
   await db

@@ -1,5 +1,15 @@
 import { expect, test } from 'vitest'
-import { formatAsOf, formatDate, formatMonth, formatNumber, formatValue, initials } from '../format'
+import {
+  formatAsOf,
+  formatCount,
+  formatDate,
+  formatDaysAgo,
+  formatMonth,
+  formatNumber,
+  formatUpdatedAgo,
+  formatValue,
+  initials,
+} from '../format'
 
 test('turkish uses a comma decimal separator', () => {
   expect(formatNumber(5.2, 'tr')).toBe('5,2')
@@ -61,4 +71,19 @@ test('the cutoff phrase puts the date where each language wants it', () => {
   // a date appended.
   expect(formatAsOf('2026-03-31', 'tr')).toBe('31.03.2026 itibarıyla')
   expect(formatAsOf('2026-03-31', 'en')).toBe('as of Mar 31, 2026')
+})
+
+test('counts pluralise in english only', () => {
+  expect(formatCount(3, 'objective', 'tr')).toBe('3 objective')
+  expect(formatCount(0, 'objective', 'en')).toBe('0 objectives')
+  expect(formatCount(1, 'objective', 'en')).toBe('1 objective')
+  expect(formatCount(2, 'key result', 'en')).toBe('2 key results')
+})
+
+test('relative days read naturally in both languages', () => {
+  expect(formatDaysAgo(1, 'tr')).toBe('1 gün önce')
+  expect(formatDaysAgo(1, 'en')).toBe('1 day ago')
+  expect(formatDaysAgo(4, 'en')).toBe('4 days ago')
+  expect(formatUpdatedAgo(1, 'tr')).toBe('1 gün önce güncellendi')
+  expect(formatUpdatedAgo(2, 'en')).toBe('updated 2 days ago')
 })

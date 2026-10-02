@@ -5,13 +5,19 @@ import type { Db } from '@/lib/db'
 import { appSettings } from '@/lib/db/schema'
 import { isValidIsoDate } from '@/lib/domain/dates'
 import { DEFAULT_RANGE_START_KEY } from '@/lib/queries/settings'
-import { fail, FORBIDDEN, ok, type ActionResult } from '../types'
+import { fail, FORBIDDEN, fromIssue, msg, ok, type ActionResult } from '../types'
+
+/** Validation messages; the schema carries `.tr`, `fromIssue` maps it back. */
+const M = {
+  dateFormat: msg('Tarih YYYY-AA-GG olmalı.', 'Date must be YYYY-MM-DD.'),
+  noSuchDay: msg('Böyle bir takvim günü yok.', "That calendar day doesn't exist."),
+}
 
 export const setDefaultRangeStartSchema = z.object({
   startsOn: z
     .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Tarih YYYY-AA-GG olmalı.')
-    .refine(isValidIsoDate, 'Böyle bir takvim günü yok.'),
+    .regex(/^\d{4}-\d{2}-\d{2}$/, M.dateFormat.tr)
+    .refine(isValidIsoDate, M.noSuchDay.tr),
 })
 
 export type SetDefaultRangeStartInput = z.input<typeof setDefaultRangeStartSchema>
@@ -30,7 +36,7 @@ export async function setDefaultRangeStartAs(
   if (!can(actor, 'manage:periods')) return fail(FORBIDDEN)
 
   const parsed = setDefaultRangeStartSchema.safeParse(input)
-  if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Girdi geçersiz.')
+  if (!parsed.success) return fail(fromIssue(parsed.error.issues[0]?.message, M))
 
   await db
     .insert(appSettings)

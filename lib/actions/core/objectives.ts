@@ -4,8 +4,12 @@ import { can, type SessionUser } from '@/lib/auth/permissions'
 import type { Db } from '@/lib/db'
 import { checkins, departments, keyResults, objectives, periods } from '@/lib/db/schema'
 import { z } from 'zod'
-import { createObjectiveSchema, type CreateObjectiveInput } from '@/lib/validation/objective'
-import { fail, FORBIDDEN, ok, type ActionResult } from '../types'
+import {
+  createObjectiveSchema,
+  OBJECTIVE_MESSAGES as M,
+  type CreateObjectiveInput,
+} from '@/lib/validation/objective'
+import { fail, FORBIDDEN, fromIssue, msg, ok, type ActionResult } from '../types'
 import { recomputeSummary } from './monthly'
 
 /**
@@ -22,7 +26,7 @@ export async function createObjectiveFor(
 ): Promise<ActionResult<{ id: string; deptSlug: string }>> {
   const parsed = createObjectiveSchema.safeParse(input)
   if (!parsed.success) {
-    return fail(parsed.error.issues[0]?.message ?? 'Girdi geçersiz.')
+    return fail(fromIssue(parsed.error.issues[0]?.message, M))
   }
   const data = parsed.data
 
@@ -35,19 +39,19 @@ export async function createObjectiveFor(
     .from(departments)
     .where(eq(departments.id, data.departmentId))
     .limit(1)
-  if (!dept) return fail('Bölüm bulunamadı.')
+  if (!dept) return fail(msg('Bölüm bulunamadı.', 'Department not found.'))
 
   const [period] = await db
     .select()
     .from(periods)
     .where(eq(periods.code, data.periodCode))
     .limit(1)
-  if (!period) return fail('Dönem bulunamadı.')
+  if (!period) return fail(msg('Dönem bulunamadı.', 'Period not found.'))
 
   // A key result whose start equals its target can never show progress, so it
   // is rejected here rather than silently rendering 0% forever.
   if (data.krs.some((k) => k.start === k.target)) {
-    return fail('Key result başlangıç ve hedef değeri aynı olamaz.')
+    return fail(msg('Key result başlangıç ve hedef değeri aynı olamaz.', "A key result's start and target values can't be the same."))
   }
 
   const existing = await db
@@ -100,15 +104,15 @@ export const updateObjectiveSchema = z.object({
   title: z
     .string()
     .trim()
-    .min(1, 'Objective adı gerekli.')
-    .max(160, 'Objective adı en fazla 160 karakter olabilir.'),
+    .min(1, M.titleRequired.tr)
+    .max(160, M.titleLong.tr),
   ownerUserId: z.string().min(1).nullable().default(null),
   krs: z
     .array(
       z.object({
         /** Absent for a newly added key result. */
         id: z.string().min(1).optional(),
-        title: z.string().trim().min(3, 'Key result en az 3 karakter olmalı.').max(200),
+        title: z.string().trim().min(3, M.krTitleShort.tr).max(200),
         start: z.number().finite(),
         target: z.number().finite(),
         unit: z.string().max(8).default(''),
@@ -127,8 +131,8 @@ export const updateObjectiveSchema = z.object({
         ownerUserId: z.string().min(1).nullable().default(null),
       }),
     )
-    .min(1, 'En az 1 key result gerekli.')
-    .max(5, 'En fazla 5 key result eklenebilir.'),
+    .min(1, M.krsMin.tr)
+    .max(5, M.krsMax.tr),
 })
 
 export type UpdateObjectiveInput = z.input<typeof updateObjectiveSchema>
@@ -146,7 +150,7 @@ export async function updateObjectiveFor(
   input: UpdateObjectiveInput,
 ): Promise<ActionResult<{ id: string; deptSlug: string }>> {
   const parsed = updateObjectiveSchema.safeParse(input)
-  if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Girdi geçersiz.')
+  if (!parsed.success) return fail(fromIssue(parsed.error.issues[0]?.message, M))
   const data = parsed.data
 
   const [row] = await db
@@ -155,7 +159,7 @@ export async function updateObjectiveFor(
     .innerJoin(departments, eq(objectives.departmentId, departments.id))
     .where(eq(objectives.id, data.id))
     .limit(1)
-  if (!row) return fail('Objective bulunamadı.')
+  if (!row) return fail(msg('Objective bulunamadı.', 'Objective not found.'))
 
   if (!can(user, 'edit:objective', { departmentId: row.deptId })) return fail(FORBIDDEN)
 
@@ -179,13 +183,18 @@ export async function updateObjectiveFor(
     return !prev || prev.start !== prev.target
   })
   if (newlyUnmeasurable) {
-    return fail(`"${newlyUnmeasurable.title}" için başlangıç ve hedef aynı olamaz — bir hedef girin.`)
+    return fail(
+      msg(
+        `"${newlyUnmeasurable.title}" için başlangıç ve hedef aynı olamaz — bir hedef girin.`,
+        `Start and target can't be the same for "${newlyUnmeasurable.title}" — enter a target.`,
+      ),
+    )
   }
 
   // An id the caller does not own must not be adoptable into this objective.
   const submittedIds = data.krs.flatMap((k) => (k.id ? [k.id] : []))
   if (submittedIds.some((id) => !existingIds.has(id))) {
-    return fail('Bu objective’e ait olmayan bir key result gönderildi.')
+    return fail(msg('Bu objective’e ait olmayan bir key result gönderildi.', "A key result that doesn't belong to this objective was sent."))
   }
 
   const keptIds = new Set(submittedIds)
@@ -281,7 +290,7 @@ export async function describeObjectiveDeletion(
     .innerJoin(departments, eq(objectives.departmentId, departments.id))
     .where(eq(objectives.id, objectiveId))
     .limit(1)
-  if (!row) return fail('Objective bulunamadı.')
+  if (!row) return fail(msg('Objective bulunamadı.', 'Objective not found.'))
   if (!can(user, 'edit:objective', { departmentId: row.deptId })) return fail(FORBIDDEN)
 
   const krs = await db
@@ -322,7 +331,7 @@ export async function deleteObjectiveFor(
     .innerJoin(departments, eq(objectives.departmentId, departments.id))
     .where(eq(objectives.id, input.id))
     .limit(1)
-  if (!row) return fail('Objective bulunamadı.')
+  if (!row) return fail(msg('Objective bulunamadı.', 'Objective not found.'))
 
   if (!can(user, 'edit:objective', { departmentId: row.deptId })) return fail(FORBIDDEN)
 

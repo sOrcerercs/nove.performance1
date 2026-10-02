@@ -120,3 +120,13 @@ test('the monthly entry link only shows for a user who can edit at least one key
   renderSidebar({ canEnterMonthly: true })
   expect(screen.getByText('navMonthlyEntry')).toBeTruthy()
 })
+
+test('Anasayfa sits above the overview and opens the welcome screen', () => {
+  setSearchParams('from=2026-04-01&to=2026-06-30')
+  renderSidebar()
+  const links = screen.getAllByRole('link').map((a) => a.textContent)
+  const home = screen.getByRole('link', { name: 'navHome' })
+  // The welcome screen has no date range, so the link stays plain.
+  expect(home.getAttribute('href')).toBe('/hosgeldin')
+  expect(links.indexOf('navHome')).toBe(links.indexOf('overview') - 1)
+})

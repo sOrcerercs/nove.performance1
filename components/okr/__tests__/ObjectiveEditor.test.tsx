@@ -96,7 +96,7 @@ test('a key result offers a way to fix a wrong figure on the monthly entry scree
   render(<ObjectiveEditor obj={OBJ} people={[]} />)
 
   // The panel opens on demand — closed by default.
-  fireEvent.click(screen.getByText('Düzenle'))
+  fireEvent.click(screen.getByText('edit'))
 
   const link = screen.getByText('fixInMonthlyEntry').closest('a')
   expect(link).not.toBeNull()
@@ -111,7 +111,7 @@ test('a key result offers a way to fix a wrong figure on the monthly entry scree
 
 test('a key result added in this session, with no monthly rows yet, offers no such link', () => {
   render(<ObjectiveEditor obj={OBJ} people={[]} />)
-  fireEvent.click(screen.getByText('Düzenle'))
+  fireEvent.click(screen.getByText('edit'))
   fireEvent.click(screen.getByText(/addKr/))
 
   // Two key results now: the seeded one (linkable) and the new one (not).

@@ -1,10 +1,11 @@
 'use client'
 
+import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { Avatar } from '@/components/ui/Avatar'
 import type { SessionUser } from '@/lib/auth/permissions'
-import { tx } from '@/lib/i18n/strings'
+import { ROLE_KEY, tx } from '@/lib/i18n/strings'
 import { usePrefs } from '@/lib/prefs/PrefsProvider'
 import type { SidebarData } from '@/lib/queries/sidebar'
 import { signOutAction } from './actions'
@@ -20,12 +21,6 @@ interface Props {
    * screen itself still renders a mixed table (some rows read-only) and the
    * server still re-checks every row on save regardless of this flag. */
   canEnterMonthly: boolean
-}
-
-const ROLE_LABEL: Record<SessionUser['role'], string> = {
-  admin: 'Yönetici',
-  executive: 'Üst Yönetim',
-  staff: 'Personel',
 }
 
 export function Sidebar({
@@ -66,11 +61,11 @@ export function Sidebar({
   }
 
   return (
-    <nav className={styles.sidebar} aria-label="Ana gezinme">
+    <nav className={styles.sidebar} aria-label={t('mainNav')}>
       <div className={styles.brand}>
-        <div className={styles.mark}>N</div>
+        <Image className={styles.mark} src="/nove-logo.png" alt="Nove" width={32} height={32} priority />
         <div>
-          <div className={styles.brandName}>Nove PYS</div>
+          <div className={styles.brandName}>Nove PYS.</div>
           <div className={styles.brandSub}>{t('brandSub')}</div>
         </div>
       </div>
@@ -83,11 +78,16 @@ export function Sidebar({
 
       <div className={styles.group}>
         <div className={styles.groupTitle}>{t('navGroupMain')}</div>
+        {/* The welcome screen is full-bleed and has no date range, so this is a
+            plain link rather than item(): no range to carry, never "active". */}
+        <Link href="/hosgeldin" className={styles.item}>
+          <span className={styles.itemLabel}>{t('navHome')}</span>
+        </Link>
         {item('/', t('overview'))}
         {item('/rapor', t('report'))}
         {canEnterMonthly ? item('/veri-girisi', t('navMonthlyEntry')) : null}
         {canManage ? item('/yonetim', t('admin')) : null}
-        {item('/yardim', 'Kullanım kılavuzu')}
+        {item('/yardim', t('userGuide'))}
       </div>
 
       <div className={styles.group}>
@@ -107,10 +107,10 @@ export function Sidebar({
           <Link href={withRange('/hesap')} className={styles.footerName}>
             {user.name}
           </Link>
-          <div className={styles.footerRole}>{ROLE_LABEL[user.role]}</div>
+          <div className={styles.footerRole}>{t(ROLE_KEY[user.role])}</div>
         </div>
         <form action={signOutAction}>
-          <button type="submit" className={styles.signOut}>Çıkış</button>
+          <button type="submit" className={styles.signOut}>{t('signOut')}</button>
         </form>
       </div>
     </nav>

@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { ProgressBar } from '@/components/ui/ProgressBar'
-import { formatMonth, formatValue, isBeforeCutoff } from '@/lib/domain/format'
+import { formatMonth, formatUpdatedAgo, formatValue, isBeforeCutoff } from '@/lib/domain/format'
 import { tx } from '@/lib/i18n/strings'
 import { usePrefs } from '@/lib/prefs/PrefsProvider'
 import type { OverviewAttentionItem } from '@/lib/queries/overview'
@@ -47,7 +47,7 @@ export function AttentionList({
                 ) : null}
                 {' · '}
                 <span className={item.daysSinceUpdate >= STALE_DAYS ? styles.stale : undefined}>
-                  {item.daysSinceUpdate} gün önce güncellendi
+                  {formatUpdatedAgo(item.daysSinceUpdate, lang)}
                 </span>
               </div>
             </div>

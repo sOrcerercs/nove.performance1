@@ -2,6 +2,7 @@ import { Topbar } from '@/components/shell/Topbar'
 import shell from '@/components/shell/shell.module.css'
 import { requireUser } from '@/lib/auth/session'
 import { getDb } from '@/lib/db'
+import { getT } from '@/lib/i18n/server'
 import { resolveRange } from '@/lib/queries/range'
 import { AccountForm } from './account-form'
 
@@ -13,10 +14,11 @@ export default async function AccountPage({
   const user = await requireUser()
   const db = await getDb()
   const selection = await resolveRange(db, await searchParams)
+  const t = await getT()
 
   return (
     <>
-      <Topbar overline="Hesabım" title="Hesabım" selection={selection} />
+      <Topbar overline={t('myAccount')} title={t('myAccount')} selection={selection} />
       <main className={shell.content}>
         <AccountForm name={user.name} email={user.email} role={user.role} />
       </main>

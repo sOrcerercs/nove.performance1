@@ -41,7 +41,10 @@ test('writing twice updates the row rather than adding one', async () => {
 test('an executive may not change it', async () => {
   const db = await seeded()
   const result = await setDefaultRangeStartAs(db, executive, { startsOn: '2026-09-01' })
-  expect(result).toEqual({ ok: false, error: 'Bu işlem için yetkiniz yok.' })
+  expect(result).toEqual({
+    ok: false,
+    error: { tr: 'Bu işlem için yetkiniz yok.', en: "You don't have permission to do this." },
+  })
   expect(await withRequestScope(() => getDefaultRangeStart(db))).toBe('2025-09-01')
 })
 

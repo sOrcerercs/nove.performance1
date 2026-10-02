@@ -81,7 +81,10 @@ test('a duplicate period code is refused', async () => {
   expect((await createPeriodAs(db, actor('admin'), input)).ok).toBe(true)
 
   const second = await createPeriodAs(db, actor('admin'), input)
-  expect(second).toEqual({ ok: false, error: 'Bu dönem zaten tanımlı.' })
+  expect(second).toEqual({
+    ok: false,
+    error: { tr: 'Bu dönem zaten tanımlı.', en: 'This period already exists.' },
+  })
 })
 
 test('activating a quarter closes the previously active one', async () => {

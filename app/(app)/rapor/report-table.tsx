@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useMemo, useState } from 'react'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import { StatusBadge } from '@/components/ui/StatusBadge'
-import { formatAsOf, formatValue } from '@/lib/domain/format'
+import { formatAsOf, formatCount, formatDaysAgo, formatValue } from '@/lib/domain/format'
 import { tx, type StringKey } from '@/lib/i18n/strings'
 import { usePrefs } from '@/lib/prefs/PrefsProvider'
 import {
@@ -66,7 +66,7 @@ export function ReportTable({
         <div className={styles.cardHead}>
           <h2 className={styles.cardTitle}>{t('deptTable')}</h2>
           <span className={styles.cardMeta}>
-            {vm.totals.objectives} {t('objective').toLowerCase()} · {vm.totals.krs} KR
+            {formatCount(vm.totals.objectives, 'objective', lang)} · {vm.totals.krs} KR
           </span>
         </div>
 
@@ -146,7 +146,7 @@ export function ReportTable({
         </div>
 
         {vm.openToDev.length === 0 ? (
-          <p className={styles.empty}>Müdahale gereken key result yok.</p>
+          <p className={styles.empty}>{t('noAttentionKrs')}</p>
         ) : (
           vm.openToDev.map((kr) => (
             <div className={styles.openRow} key={kr.id}>
@@ -155,7 +155,7 @@ export function ReportTable({
                 <div className={styles.openTitle}>{tx({ tr: kr.titleTr, en: kr.titleEn }, lang)}</div>
                 <div className={styles.openMeta}>
                   {kr.ownerName} · {formatValue(kr.current, kr.unit, lang)} →{' '}
-                  {formatValue(kr.target, kr.unit, lang)} · {kr.daysSinceUpdate} gün önce
+                  {formatValue(kr.target, kr.unit, lang)} · {formatDaysAgo(kr.daysSinceUpdate, lang)}
                 </div>
               </div>
               <div className={styles.openBar}>

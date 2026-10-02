@@ -4,6 +4,8 @@ import shell from '@/components/shell/shell.module.css'
 import { can } from '@/lib/auth/permissions'
 import { requireUser } from '@/lib/auth/session'
 import { getDb } from '@/lib/db'
+import { HELP_COPY } from '@/lib/help/copy'
+import { getLang } from '@/lib/i18n/server'
 import { getHelpArticles } from '@/lib/queries/help'
 import { resolveRange } from '@/lib/queries/range'
 
@@ -15,14 +17,16 @@ export default async function HelpPage({
   const user = await requireUser()
   const db = await getDb()
 
-  const [selection, articles] = await Promise.all([
+  const [selection, articles, lang] = await Promise.all([
     resolveRange(db, await searchParams),
     getHelpArticles(db),
+    getLang(),
   ])
+  const c = HELP_COPY[lang]
 
   return (
     <>
-      <Topbar overline="Yardım" title="Kullanım kılavuzu" selection={selection} />
+      <Topbar overline={c.overline} title={c.title} selection={selection} />
       <main className={shell.content}>
         <HelpClient articles={articles} canManage={can(user, 'manage:help')} />
       </main>

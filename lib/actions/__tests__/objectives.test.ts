@@ -12,6 +12,7 @@ import { allPeriods } from '@/lib/queries/tables'
 import type { Role } from '@/lib/domain/types'
 import { submitCheckinFor } from '../core/checkins'
 import { setMonthlyValueAs } from '../core/monthly'
+import { M1, M2 } from './open-months'
 import {
   createObjectiveFor,
   deleteObjectiveFor,
@@ -74,7 +75,10 @@ test('rejects a key result whose start equals its target', async () => {
     krs: [{ title: 'Hiç ilerlemeyecek bir KR', start: 50, target: 50, unit: '' }],
   })
   expect(res.ok).toBe(false)
-  if (!res.ok) expect(res.error).toContain('aynı olamaz')
+  if (!res.ok) {
+    expect(res.error.tr).toContain('aynı olamaz')
+    expect(res.error.en).toContain("can't be the same")
+  }
 })
 
 test('a staff record may not create an objective', async () => {
@@ -185,8 +189,8 @@ test('editing a key result changes its measured values', async () => {
 test('changing the rollup rule recomputes current, without touching the monthly rows', async () => {
   const db = await seeded()
   // k-msf-yorum is a `sum` rule: two months on file sum to 90.
-  await setMonthlyValueAs(db, actor('admin', null), { krId: 'k-msf-yorum', month: '2025-09', value: 30 })
-  await setMonthlyValueAs(db, actor('admin', null), { krId: 'k-msf-yorum', month: '2025-10', value: 60 })
+  await setMonthlyValueAs(db, actor('admin', null), { krId: 'k-msf-yorum', month: M1, value: 30 })
+  await setMonthlyValueAs(db, actor('admin', null), { krId: 'k-msf-yorum', month: M2, value: 60 })
 
   const [before] = await db.select().from(krTable).where(eq(krTable.id, 'k-msf-yorum'))
   expect(before?.current).toBe(90)
@@ -217,8 +221,8 @@ test('changing the rollup rule recomputes current, without touching the monthly 
 
 test('editing a key result without changing its rollup rule leaves current alone', async () => {
   const db = await seeded()
-  await setMonthlyValueAs(db, actor('admin', null), { krId: 'k-msf-yorum', month: '2025-09', value: 30 })
-  await setMonthlyValueAs(db, actor('admin', null), { krId: 'k-msf-yorum', month: '2025-10', value: 60 })
+  await setMonthlyValueAs(db, actor('admin', null), { krId: 'k-msf-yorum', month: M1, value: 30 })
+  await setMonthlyValueAs(db, actor('admin', null), { krId: 'k-msf-yorum', month: M2, value: 60 })
 
   const existing = await krsOf(db, SAHA_OBJ)
   const res = await updateObjectiveFor(db, actor('admin', null), {
@@ -473,8 +477,9 @@ test('changing a healthy key result to start equal target is still rejected, nam
   })
   expect(res.ok).toBe(false)
   if (!res.ok) {
-    expect(res.error).toContain(victim.titleTr)
-    expect(res.error).toContain('aynı olamaz')
+    expect(res.error.tr).toContain(victim.titleTr)
+    expect(res.error.tr).toContain('aynı olamaz')
+    expect(res.error.en).toContain(victim.titleTr)
   }
 
   // Rejected wholesale: the key result keeps its original target.
@@ -506,7 +511,10 @@ test('adding a brand-new key result with start equal to target within an edit is
     ],
   })
   expect(res.ok).toBe(false)
-  if (!res.ok) expect(res.error).toContain('aynı olamaz')
+  if (!res.ok) {
+    expect(res.error.tr).toContain('aynı olamaz')
+    expect(res.error.en).toContain("can't be the same")
+  }
 
   // Nothing was added.
   expect(await krsOf(db, SAHA_OBJ)).toHaveLength(existing.length)

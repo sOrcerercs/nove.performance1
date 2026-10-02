@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import { StatusBadge } from '@/components/ui/StatusBadge'
+import { formatCount } from '@/lib/domain/format'
 import { tx } from '@/lib/i18n/strings'
 import { usePrefs } from '@/lib/prefs/PrefsProvider'
 import type { OverviewDept } from '@/lib/queries/overview'
@@ -27,7 +28,7 @@ export function DeptCard({ dept }: { dept: OverviewDept }) {
       <ProgressBar pct={dept.pct} label={`${name} ${t('overallProgress')}`} />
 
       <div className={styles.deptMeta}>
-        {dept.objectiveCount} {t('objective').toLowerCase()} · {dept.krCount} KR
+        {formatCount(dept.objectiveCount, 'objective', lang)} · {dept.krCount} KR
         {dept.leadName ? ` · ${dept.leadName}` : ''}
       </div>
     </Link>

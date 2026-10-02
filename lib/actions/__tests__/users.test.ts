@@ -93,7 +93,10 @@ test('a duplicate email is refused rather than throwing', async () => {
     departmentId: null, password: NEW_PASSWORD,
   })
   expect(res.ok).toBe(false)
-  if (!res.ok) expect(res.error).toContain('zaten kayıtlı')
+  if (!res.ok) {
+    expect(res.error.tr).toContain('zaten kayıtlı')
+    expect(res.error.en).toContain('already registered')
+  }
 })
 
 test('a non-admin cannot create users', async () => {
@@ -150,7 +153,10 @@ test('the last admin cannot be demoted', async () => {
     userId: survivor.id, role: 'staff',
   })
   expect(res.ok).toBe(false)
-  if (!res.ok) expect(res.error).toContain('Son yönetici')
+  if (!res.ok) {
+    expect(res.error.tr).toContain('Son yönetici')
+    expect(res.error.en).toContain('last admin')
+  }
 })
 
 /* --------------------------------- state -------------------------------- */
@@ -195,7 +201,10 @@ test('a person referenced by key results cannot be deleted', async () => {
 
   const res = await deleteUserAs(db, actor('admin'), { userId: THIRD_ADMIN_ID })
   expect(res.ok).toBe(false)
-  if (!res.ok) expect(res.error).toContain('pasifleştir')
+  if (!res.ok) {
+    expect(res.error.tr).toContain('pasifleştir')
+    expect(res.error.en).toContain('Deactivate')
+  }
 
   expect(await db.select().from(users).where(eq(users.id, THIRD_ADMIN_ID))).toHaveLength(1)
 })

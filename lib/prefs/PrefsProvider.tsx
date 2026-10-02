@@ -1,7 +1,9 @@
 'use client'
 
+import { useRouter } from 'next/navigation'
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import type { Lang } from '@/lib/domain/types'
+import { LANG_COOKIE, writeLangCookie } from '@/lib/i18n/lang-cookie'
 import { STR, type StringKey } from '@/lib/i18n/strings'
 
 export type LayoutVariant = 'hero' | 'cockpit' | 'focus'
@@ -42,6 +44,29 @@ export function PrefsProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     setPrefs((p) => ({ ...p, ...readStored() }))
   }, [])
+
+  // Keep the document and the server's copy in step with the choice: `lang`
+  // drives case rules (Turkish would uppercase an English "i" as "İ") and the
+  // cookie lets server-rendered parts follow the same language.
+  //
+  // When the cookie actually changes, the server-rendered parts on screen
+  // (page titles in the top bar, the Account page) were drawn in the old
+  // language: refresh them. Not on every mount — only when the server's copy
+  // was out of date — so a normal page load does not render twice.
+  const router = useRouter()
+  useEffect(() => {
+    document.documentElement.lang = prefs.lang
+    try {
+      const current = document.cookie.match(new RegExp(`(?:^|; )${LANG_COOKIE}=([^;]*)`))?.[1]
+      if (current === prefs.lang) return
+      writeLangCookie(prefs.lang)
+      // A missing cookie on a Turkish page needs no redraw: Turkish is the
+      // server's default.
+      if (current !== undefined || prefs.lang !== 'tr') router.refresh()
+    } catch {
+      // Cookies disabled: server-rendered parts fall back to Turkish.
+    }
+  }, [prefs.lang, router])
 
   const update = useCallback((patch: Partial<Prefs>) => {
     setPrefs((prev) => {

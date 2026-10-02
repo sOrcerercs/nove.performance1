@@ -50,7 +50,10 @@ test('a duplicate slug is refused rather than throwing', async () => {
   const db = await seeded()
   const res = await createDepartmentAs(db, actor('admin'), { ...newDept, slug: 'satis' })
   expect(res.ok).toBe(false)
-  if (!res.ok) expect(res.error).toContain('kısa ad')
+  if (!res.ok) {
+    expect(res.error.tr).toContain('kısa ad')
+    expect(res.error.en).toContain('short name')
+  }
 })
 
 test('a slug with spaces or non-ascii is refused — it becomes a URL', async () => {
@@ -134,7 +137,10 @@ test('a department holding objectives cannot be deleted', async () => {
 
   const res = await deleteDepartmentAs(db, actor('admin'), { id: 'sirket' })
   expect(res.ok).toBe(false)
-  if (!res.ok) expect(res.error).toContain('objective')
+  if (!res.ok) {
+    expect(res.error.tr).toContain('objective')
+    expect(res.error.en).toContain('objective')
+  }
 
   // Nothing was destroyed on the way to being refused.
   expect(await db.select().from(departments).where(eq(departments.id, 'sirket'))).toHaveLength(1)
