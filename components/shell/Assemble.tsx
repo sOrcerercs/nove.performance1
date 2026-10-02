@@ -4,10 +4,13 @@ import { usePathname } from 'next/navigation'
 import { useLayoutEffect, useRef } from 'react'
 import { assembleOffset, isAssembleRoute, pickBlocks } from './assemble-motion'
 
-const DURATION = 760
-const STAGGER = 32
-const MAX_DELAY = 360
-const EASE = 'cubic-bezier(.16, 1, .3, 1)'
+// Slow enough to read as a deliberate motion: with the sharper expo-out curve
+// half the travel was over in ~0.1 s and it looked like a jump. Ease-out cubic
+// spreads the movement over the whole second.
+const DURATION = 1100
+const STAGGER = 45
+const MAX_DELAY = 500
+const EASE = 'cubic-bezier(.33, 1, .68, 1)'
 
 /**
  * Wraps the app's content area. When one of the listed screens opens, its
@@ -45,7 +48,7 @@ export function Assemble({ className, children }: { className?: string; children
       .filter((el) => el.getBoundingClientRect().top < viewH + 120)
 
     const animations: Animation[] = [
-      root.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 260, easing: 'ease-out' }),
+      root.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 400, easing: 'ease-out' }),
     ]
     blocks.forEach((el, i) => {
       const r = el.getBoundingClientRect()
