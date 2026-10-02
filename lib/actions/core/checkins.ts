@@ -7,7 +7,7 @@ import { checkins, departments, keyResults, krMonthlyValues, objectives } from '
 import { todayInIstanbul } from '@/lib/domain/dates'
 import { krPct } from '@/lib/domain/progress'
 import type { Confidence } from '@/lib/domain/types'
-import { fail, FORBIDDEN, ok, type ActionResult } from '../types'
+import { fail, FORBIDDEN, INVALID_INPUT, msg, ok, type ActionResult } from '../types'
 import { recomputeSummary, upsertMonthlyValue } from './monthly'
 
 export const checkinSchema = z.object({
@@ -48,7 +48,7 @@ export async function submitCheckinFor(
 ): Promise<ActionResult<CheckinOutcome>> {
   const parsed = checkinSchema.safeParse(input)
   if (!parsed.success) {
-    return fail(parsed.error.issues[0]?.message ?? 'Girdi geçersiz.')
+    return fail(INVALID_INPUT)
   }
   const data = parsed.data
 
@@ -66,7 +66,7 @@ export async function submitCheckinFor(
     .where(eq(keyResults.id, data.keyResultId))
     .limit(1)
 
-  if (!row) return fail('Key result bulunamadı.')
+  if (!row) return fail(msg('Key result bulunamadı.', 'Key result not found.'))
 
   if (
     !can(user, 'checkin:kr', {

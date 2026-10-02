@@ -4,7 +4,17 @@ import { can, type SessionUser } from '@/lib/auth/permissions'
 import type { Db } from '@/lib/db'
 import { periods } from '@/lib/db/schema'
 import type { PeriodKind } from '@/lib/domain/types'
-import { fail, FORBIDDEN, ok, type ActionResult } from '../types'
+import { fail, FORBIDDEN, fromIssue, msg, ok, type ActionResult } from '../types'
+
+/** Validation messages; the schemas carry `.tr`, `fromIssue` maps it back. */
+const M = {
+  codeRequired: msg('Dönem kodu gerekli.', 'Period code is required.'),
+  dateFormat: msg('Tarih YYYY-AA-GG olmalı.', 'Date must be YYYY-MM-DD.'),
+  quarterCode: msg('Çeyrek kodu 2026-Q3 biçiminde olmalı.', 'Quarter code must look like 2026-Q3.'),
+  monthCode: msg('Ay kodu 2026-08 biçiminde olmalı.', 'Month code must look like 2026-08.'),
+  yearCode: msg('Mali yıl kodu 2026-FY biçiminde olmalı.', 'Fiscal year code must look like 2026-FY.'),
+  endAfterStart: msg('Bitiş, başlangıçtan sonra olmalı.', 'The end date must be after the start date.'),
+}
 
 /** `2026-Q3` for a quarter, `2026-08` for a month, `2026-FY` for a fiscal year. */
 const QUARTER_CODE = /^\d{4}-Q[1-4]$/
@@ -13,10 +23,10 @@ const YEAR_CODE = /^\d{4}-FY$/
 
 export const createPeriodSchema = z
   .object({
-    code: z.string().trim().min(1, 'Dönem kodu gerekli.').max(16),
+    code: z.string().trim().min(1, M.codeRequired.tr).max(16),
     kind: z.enum(['quarter', 'month', 'year']),
-    startsOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Tarih YYYY-AA-GG olmalı.'),
-    endsOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Tarih YYYY-AA-GG olmalı.'),
+    startsOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, M.dateFormat.tr),
+    endsOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, M.dateFormat.tr),
   })
   .superRefine((v, ctx) => {
     const pattern =
@@ -28,13 +38,13 @@ export const createPeriodSchema = z
         code: 'custom',
         path: ['code'],
         message:
-          v.kind === 'quarter' ? 'Çeyrek kodu 2026-Q3 biçiminde olmalı.'
-          : v.kind === 'month' ? 'Ay kodu 2026-08 biçiminde olmalı.'
-          : 'Mali yıl kodu 2026-FY biçiminde olmalı.',
+          v.kind === 'quarter' ? M.quarterCode.tr
+          : v.kind === 'month' ? M.monthCode.tr
+          : M.yearCode.tr,
       })
     }
     if (v.endsOn <= v.startsOn) {
-      ctx.addIssue({ code: 'custom', path: ['endsOn'], message: 'Bitiş, başlangıçtan sonra olmalı.' })
+      ctx.addIssue({ code: 'custom', path: ['endsOn'], message: M.endAfterStart.tr })
     }
   })
 
@@ -48,11 +58,11 @@ export async function createPeriodAs(
   if (!can(actor, 'manage:periods')) return fail(FORBIDDEN)
 
   const parsed = createPeriodSchema.safeParse(input)
-  if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Girdi geçersiz.')
+  if (!parsed.success) return fail(fromIssue(parsed.error.issues[0]?.message, M))
   const data = parsed.data
 
   const [existing] = await db.select().from(periods).where(eq(periods.code, data.code)).limit(1)
-  if (existing) return fail('Bu dönem zaten tanımlı.')
+  if (existing) return fail(msg('Bu dönem zaten tanımlı.', 'This period already exists.'))
 
   const id = `p-${data.code.toLowerCase()}`
   await db.insert(periods).values({
@@ -78,14 +88,14 @@ export async function setPeriodStateAs(
   const parsed = z
     .object({ periodId: z.string().min(1), state: z.enum(['active', 'closed', 'planned']) })
     .safeParse(input)
-  if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Girdi geçersiz.')
+  if (!parsed.success) return fail(fromIssue(parsed.error.issues[0]?.message, M))
 
   const [target] = await db
     .select()
     .from(periods)
     .where(eq(periods.id, parsed.data.periodId))
     .limit(1)
-  if (!target) return fail('Dönem bulunamadı.')
+  if (!target) return fail(msg('Dönem bulunamadı.', 'Period not found.'))
 
   await db.transaction(async (tx) => {
     // At most one active period, full stop. The open period is what new
@@ -106,12 +116,12 @@ export async function setPeriodStateAs(
 export const updatePeriodDatesSchema = z
   .object({
     periodId: z.string().min(1),
-    startsOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Tarih YYYY-AA-GG olmalı.'),
-    endsOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Tarih YYYY-AA-GG olmalı.'),
+    startsOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, M.dateFormat.tr),
+    endsOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, M.dateFormat.tr),
   })
   .superRefine((v, ctx) => {
     if (v.endsOn <= v.startsOn) {
-      ctx.addIssue({ code: 'custom', path: ['endsOn'], message: 'Bitiş, başlangıçtan sonra olmalı.' })
+      ctx.addIssue({ code: 'custom', path: ['endsOn'], message: M.endAfterStart.tr })
     }
   })
 
@@ -132,14 +142,14 @@ export async function updatePeriodDatesAs(
   if (!can(actor, 'manage:periods')) return fail(FORBIDDEN)
 
   const parsed = updatePeriodDatesSchema.safeParse(input)
-  if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Girdi geçersiz.')
+  if (!parsed.success) return fail(fromIssue(parsed.error.issues[0]?.message, M))
 
   const [target] = await db
     .select()
     .from(periods)
     .where(eq(periods.id, parsed.data.periodId))
     .limit(1)
-  if (!target) return fail('Dönem bulunamadı.')
+  if (!target) return fail(msg('Dönem bulunamadı.', 'Period not found.'))
 
   await db
     .update(periods)

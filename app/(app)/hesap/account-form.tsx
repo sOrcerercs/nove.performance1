@@ -4,13 +4,9 @@ import { useState } from 'react'
 import { useToast } from '@/components/ui/ToastProvider'
 import { changeOwnPassword } from '@/lib/actions/admin'
 import type { Role } from '@/lib/domain/types'
+import { fill, ROLE_KEY, tx } from '@/lib/i18n/strings'
+import { usePrefs } from '@/lib/prefs/PrefsProvider'
 import styles from './account.module.css'
-
-const ROLE_LABEL: Record<Role, string> = {
-  admin: 'Yönetici',
-  executive: 'Üst Yönetim',
-  staff: 'Personel',
-}
 
 const MIN_LENGTH = 12
 
@@ -25,6 +21,7 @@ export function AccountForm({
 }) {
   const toast = useToast()
 
+  const { t, lang } = usePrefs()
   const [current, setCurrent] = useState('')
   const [next, setNext] = useState('')
   const [confirm, setConfirm] = useState('')
@@ -43,40 +40,40 @@ export function AccountForm({
     const result = await changeOwnPassword({ currentPassword: current, newPassword: next })
 
     if (result.ok) {
-      toast('Parolan güncellendi')
+      toast(t('toastOwnPasswordUpdated'))
       setCurrent('')
       setNext('')
       setConfirm('')
     } else {
-      setError(result.error)
+      setError(tx(result.error, lang))
     }
     setPending(false)
   }
 
   return (
     <div className={styles.wrap}>
-      <h1 className={styles.h1}>Hesabım</h1>
+      <h1 className={styles.h1}>{t('myAccount')}</h1>
 
       <section className={styles.card}>
         <dl className={styles.info}>
-          <dt className={styles.dt}>Ad Soyad</dt>
+          <dt className={styles.dt}>{t('fullName')}</dt>
           <dd className={styles.dd}>{name}</dd>
-          <dt className={styles.dt}>E-posta</dt>
+          <dt className={styles.dt}>{t('email')}</dt>
           <dd className={styles.dd}>{email}</dd>
-          <dt className={styles.dt}>Rol</dt>
-          <dd className={styles.dd}>{ROLE_LABEL[role]}</dd>
+          <dt className={styles.dt}>{t('thRole')}</dt>
+          <dd className={styles.dd}>{t(ROLE_KEY[role])}</dd>
         </dl>
       </section>
 
       <section className={styles.card}>
-        <h2 className={styles.cardTitle}>Parola değiştir</h2>
+        <h2 className={styles.cardTitle}>{t('changePassword')}</h2>
         <p className={styles.lead}>
-          En az {MIN_LENGTH} karakter. Mevcut parolan, oturumun açık olsa bile doğrulanır.
+          {fill(t('passwordLead'), { n: MIN_LENGTH })}
         </p>
 
         <form onSubmit={onSubmit}>
           <div className={styles.field}>
-            <label className={styles.label} htmlFor="current">Mevcut parola</label>
+            <label className={styles.label} htmlFor="current">{t('currentPassword')}</label>
             <input
               id="current" className={styles.input} type="password"
               autoComplete="current-password"
@@ -85,7 +82,7 @@ export function AccountForm({
           </div>
 
           <div className={styles.field}>
-            <label className={styles.label} htmlFor="next">Yeni parola</label>
+            <label className={styles.label} htmlFor="next">{t('newPassword')}</label>
             <input
               id="next" className={styles.input} type="password"
               autoComplete="new-password"
@@ -93,25 +90,25 @@ export function AccountForm({
             />
             {next.length > 0 && next.length < MIN_LENGTH ? (
               <p className={styles.hintWarn}>
-                {MIN_LENGTH - next.length} karakter daha gerekli.
+                {fill(t('charsNeeded'), { n: MIN_LENGTH - next.length })}
               </p>
             ) : null}
           </div>
 
           <div className={styles.field}>
-            <label className={styles.label} htmlFor="confirm">Yeni parola (tekrar)</label>
+            <label className={styles.label} htmlFor="confirm">{t('newPasswordAgain')}</label>
             <input
               id="confirm" className={styles.input} type="password"
               autoComplete="new-password"
               value={confirm} onChange={(e) => setConfirm(e.target.value)}
             />
-            {mismatch ? <p className={styles.hintWarn}>Parolalar eşleşmiyor.</p> : null}
+            {mismatch ? <p className={styles.hintWarn}>{t('passwordsMismatch')}</p> : null}
           </div>
 
           {error ? <p className={styles.error} role="alert">{error}</p> : null}
 
           <button type="submit" className={styles.primary} disabled={!canSubmit}>
-            {pending ? '…' : 'Parolayı güncelle'}
+            {pending ? '…' : t('updatePassword')}
           </button>
         </form>
       </section>

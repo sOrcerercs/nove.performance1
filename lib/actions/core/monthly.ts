@@ -12,11 +12,17 @@ import { can, type SessionUser } from '@/lib/auth/permissions'
 import type { Db } from '@/lib/db'
 import { departments, keyResults, krMonthlyValues, objectives, periods } from '@/lib/db/schema'
 import { monthsOfPeriod, rollup } from '@/lib/domain/monthly'
-import { fail, FORBIDDEN, ok, type ActionResult } from '../types'
+import type { Bilingual } from '@/lib/domain/types'
+import { fail, FORBIDDEN, fromIssue, msg, ok, type ActionResult } from '../types'
+
+/** Validation messages; the schema carries `.tr`, `fromIssue` maps it back. */
+const M = {
+  monthFormat: msg('Ay YYYY-AA biçiminde olmalı.', 'Month must be in YYYY-MM format.'),
+}
 
 export const setMonthlyValueSchema = z.object({
   krId: z.string().min(1),
-  month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, 'Ay YYYY-AA biçiminde olmalı.'),
+  month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, M.monthFormat.tr),
   value: z.number().finite(),
   note: z.string().trim().max(1000).optional(),
 })
@@ -171,7 +177,7 @@ export async function setMonthlyValueAs(
 ): Promise<ActionResult<SetMonthlyValueOutcome>> {
   const parsed = setMonthlyValueSchema.safeParse(input)
   if (!parsed.success) {
-    return fail(parsed.error.issues[0]?.message ?? 'Girdi geçersiz.')
+    return fail(fromIssue(parsed.error.issues[0]?.message, M))
   }
   const data = parsed.data
 
@@ -191,7 +197,7 @@ export async function setMonthlyValueAs(
     .where(eq(keyResults.id, data.krId))
     .limit(1)
 
-  if (!row) return fail('Key result bulunamadı.')
+  if (!row) return fail(msg('Key result bulunamadı.', 'Key result not found.'))
 
   if (
     !can(actor, 'checkin:kr', {
@@ -204,7 +210,7 @@ export async function setMonthlyValueAs(
 
   const validMonths = monthsOfPeriod(row.periodStartsOn, row.periodEndsOn)
   if (!validMonths.includes(data.month)) {
-    return fail('Bu ay, key result’ın dönemi içinde değil.')
+    return fail(msg('Bu ay, key result’ın dönemi içinde değil.', "This month is not within the key result's period."))
   }
 
   const current = await db.transaction(async (tx) => {
@@ -225,7 +231,7 @@ export interface SetMonthlyValueItemOutcome {
   krId: string
   month: string
   ok: boolean
-  error?: string
+  error?: Bilingual
   current?: number | null
 }
 
@@ -254,7 +260,7 @@ export async function setMonthlyValuesAs(
   actor: SessionUser,
   items: SetMonthlyValueInput[],
 ): Promise<ActionResult<SetMonthlyValueItemOutcome[]>> {
-  if (items.length === 0) return fail('Kaydedilecek satır yok.')
+  if (items.length === 0) return fail(msg('Kaydedilecek satır yok.', 'There are no rows to save.'))
 
   const results: SetMonthlyValueItemOutcome[] = []
   for (const item of items) {

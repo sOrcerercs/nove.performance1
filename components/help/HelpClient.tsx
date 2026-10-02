@@ -9,13 +9,17 @@ import {
   updateHelpArticle,
 } from '@/lib/actions/help'
 import { groupByCategory } from '@/lib/help/content'
+import { HELP_COPY } from '@/lib/help/copy'
 import { matchesQuery } from '@/lib/help/search'
 import {
   CATEGORY_LABEL,
   HELP_CATEGORIES,
+  localizeArticle,
   type HelpArticle,
   type HelpCategory,
 } from '@/lib/help/types'
+import { tx } from '@/lib/i18n/strings'
+import { usePrefs } from '@/lib/prefs/PrefsProvider'
 import { RichText } from './RichText'
 import styles from './help.module.css'
 
@@ -37,6 +41,8 @@ export function HelpClient({
 }) {
   const router = useRouter()
   const toast = useToast()
+  const { lang } = usePrefs()
+  const c = HELP_COPY[lang]
 
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState<HelpCategory | 'all'>('all')
@@ -47,16 +53,26 @@ export function HelpClient({
   const [pending, setPending] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
 
+  // Built-ins in the interface language; team notes as written.
+  const localized = useMemo(
+    () => articles.map((a) => ({ ...a, shown: localizeArticle(a, lang) })),
+    [articles, lang],
+  )
+
   const filtered = useMemo(() => {
     const q = query.trim()
-    return articles.filter((a) => {
+    return localized.filter((a) => {
       if (category !== 'all' && a.category !== category) return false
       if (!q) return true
       // The answer is searched too: people describe their problem, not the
-      // heading it happens to live under.
-      return matchesQuery(`${a.question} ${a.answer}`, q)
+      // heading it happens to live under. Both languages of a built-in entry
+      // are searched, so a Turkish term still finds it in the English guide.
+      return matchesQuery(
+        `${a.question} ${a.answer} ${a.en?.question ?? ''} ${a.en?.answer ?? ''}`,
+        q,
+      )
     })
-  }, [articles, query, category])
+  }, [localized, query, category])
 
   const grouped = useMemo(() => groupByCategory(filtered), [filtered])
 
@@ -87,11 +103,11 @@ export function HelpClient({
         })
 
     if (result.ok) {
-      toast(draft.id ? 'Soru güncellendi' : 'Soru eklendi')
+      toast(draft.id ? c.toastUpdated : c.toastAdded)
       setDraft(null)
       router.refresh()
     } else {
-      setError(result.error)
+      setError(tx(result.error, lang))
     }
     setPending(false)
   }
@@ -101,11 +117,11 @@ export function HelpClient({
     setError(null)
     const result = await deleteHelpArticle({ id })
     if (result.ok) {
-      toast('Soru silindi')
+      toast(c.toastDeleted)
       setConfirmDelete(null)
       router.refresh()
     } else {
-      setError(result.error)
+      setError(tx(result.error, lang))
     }
     setPending(false)
   }
@@ -115,22 +131,19 @@ export function HelpClient({
 
   return (
     <>
-      <h1 className={styles.h1}>Kullanım kılavuzu</h1>
-      <p className={styles.lead}>
-        Programın nasıl kullanıldığına dair sorular ve cevapları. Aradığınızı
-        bulamazsanız bir yöneticiye söyleyin — buraya ekleyebilir.
-      </p>
+      <h1 className={styles.h1}>{c.title}</h1>
+      <p className={styles.lead}>{c.lead}</p>
 
       <div className={styles.searchRow}>
         <input
           className={styles.search}
-          placeholder="Soru veya kelime ara… (örn. parola, geçmiş veri, mali yıl)"
-          aria-label="Kılavuzda ara"
+          placeholder={c.searchPlaceholder}
+          aria-label={c.searchLabel}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
         <span className={styles.count}>
-          {filtered.length} / {articles.length} soru
+          {filtered.length} / {articles.length} {c.countUnit}
         </span>
         {canManage ? (
           <button
@@ -141,7 +154,7 @@ export function HelpClient({
               setError(null)
             }}
           >
-            + Soru ekle
+            {c.addQuestion}
           </button>
         ) : null}
       </div>
@@ -153,17 +166,17 @@ export function HelpClient({
           aria-pressed={category === 'all'}
           onClick={() => setCategory('all')}
         >
-          Tümü
+          {c.all}
         </button>
-        {HELP_CATEGORIES.map((c) => (
+        {HELP_CATEGORIES.map((cat) => (
           <button
-            key={c}
+            key={cat}
             type="button"
-            className={`${styles.chip} ${category === c ? styles.chipActive : ''}`}
-            aria-pressed={category === c}
-            onClick={() => setCategory(c)}
+            className={`${styles.chip} ${category === cat ? styles.chipActive : ''}`}
+            aria-pressed={category === cat}
+            onClick={() => setCategory(cat)}
           >
-            {CATEGORY_LABEL[c]}
+            {tx(CATEGORY_LABEL[cat], lang)}
           </button>
         ))}
       </div>
@@ -171,52 +184,52 @@ export function HelpClient({
       {draft ? (
         <div className={styles.editor}>
           <h2 className={styles.editorTitle}>
-            {draft.id ? 'Soruyu düzenle' : 'Yeni soru ekle'}
+            {draft.id ? c.editTitle : c.newTitle}
           </h2>
 
           <div className={styles.field}>
-            <label className={styles.label} htmlFor="h-cat">Kategori</label>
+            <label className={styles.label} htmlFor="h-cat">{c.category}</label>
             <select
               id="h-cat"
               className={styles.select}
               value={draft.category}
               onChange={(e) => setDraft({ ...draft, category: e.target.value as HelpCategory })}
             >
-              {HELP_CATEGORIES.map((c) => (
-                <option key={c} value={c}>{CATEGORY_LABEL[c]}</option>
+              {HELP_CATEGORIES.map((cat) => (
+                <option key={cat} value={cat}>{tx(CATEGORY_LABEL[cat], lang)}</option>
               ))}
             </select>
           </div>
 
           <div className={styles.field}>
-            <label className={styles.label} htmlFor="h-q">Soru</label>
+            <label className={styles.label} htmlFor="h-q">{c.question}</label>
             <input
               id="h-q"
               className={styles.input}
-              placeholder="Örn. Bir çalışan işten ayrılınca ne yapmalıyım?"
+              placeholder={c.questionPlaceholder}
               value={draft.question}
               onChange={(e) => setDraft({ ...draft, question: e.target.value })}
             />
           </div>
 
           <div className={styles.field}>
-            <label className={styles.label} htmlFor="h-a">Cevap</label>
+            <label className={styles.label} htmlFor="h-a">{c.answer}</label>
             <textarea
               id="h-a"
               className={styles.textarea}
-              placeholder={'Adım adım anlatın.\n\nBoş satır yeni paragraf açar.'}
+              placeholder={c.answerPlaceholder}
               value={draft.answer}
               onChange={(e) => setDraft({ ...draft, answer: e.target.value })}
             />
             <p className={styles.hint}>
-              Biçimlendirme: <code>**kalın**</code> · <code>`kod`</code> · boş satır
-              yeni paragraf. Başka bir şey desteklenmiyor.
+              {c.formatHint} <code>{c.formatBold}</code> · <code>{c.formatCode}</code> ·{' '}
+              {c.formatRest}
             </p>
           </div>
 
           {draft.answer.trim() ? (
             <div className={styles.previewBox}>
-              <div className={styles.previewLabel}>Önizleme</div>
+              <div className={styles.previewLabel}>{c.preview}</div>
               <RichText text={draft.answer} />
             </div>
           ) : null}
@@ -229,7 +242,7 @@ export function HelpClient({
               className={styles.secondary}
               onClick={() => { setDraft(null); setError(null) }}
             >
-              Vazgeç
+              {c.cancel}
             </button>
             <button
               type="button"
@@ -237,7 +250,7 @@ export function HelpClient({
               disabled={!draftValid || pending}
               onClick={save}
             >
-              {pending ? '…' : 'Kaydet'}
+              {pending ? '…' : c.save}
             </button>
           </div>
         </div>
@@ -245,18 +258,15 @@ export function HelpClient({
 
       {filtered.length === 0 ? (
         <div className={styles.card}>
-          <p className={styles.empty}>
-            “{query}” için sonuç yok. Farklı bir kelime deneyin ya da kategori
-            filtresini kaldırın.
-          </p>
+          <p className={styles.empty}>{c.noResults(query)}</p>
         </div>
       ) : null}
 
-      {HELP_CATEGORIES.filter((c) => grouped.has(c)).map((c) => (
-        <section className={styles.section} key={c}>
-          <h2 className={styles.sectionTitle}>{CATEGORY_LABEL[c]}</h2>
+      {HELP_CATEGORIES.filter((cat) => grouped.has(cat)).map((cat) => (
+        <section className={styles.section} key={cat}>
+          <h2 className={styles.sectionTitle}>{tx(CATEGORY_LABEL[cat], lang)}</h2>
           <div className={styles.card}>
-            {(grouped.get(c) ?? []).map((a) => {
+            {(grouped.get(cat) ?? []).map((a) => {
               const isOpen = open.has(a.id)
               return (
                 <div className={styles.item} key={a.id}>
@@ -269,18 +279,18 @@ export function HelpClient({
                     <span className={styles.chevron} aria-hidden="true">
                       {isOpen ? '▾' : '▸'}
                     </span>
-                    <span className={styles.questionText}>{a.question}</span>
+                    <span className={styles.questionText}>{a.shown.question}</span>
                     {a.source === 'custom' ? (
-                      <span className={styles.customTag}>ekip notu</span>
+                      <span className={styles.customTag}>{c.customTag}</span>
                     ) : null}
                   </button>
 
                   {isOpen ? (
                     <div className={styles.answer}>
-                      <RichText text={a.answer} />
+                      <RichText text={a.shown.answer} />
 
                       {a.source === 'custom' && a.authorName ? (
-                        <p className={styles.meta}>Ekleyen: {a.authorName}</p>
+                        <p className={styles.meta}>{c.addedBy} {a.authorName}</p>
                       ) : null}
 
                       {canManage && a.source === 'custom' ? (
@@ -299,7 +309,7 @@ export function HelpClient({
                               setError(null)
                             }}
                           >
-                            Düzenle
+                            {c.edit}
                           </button>
                           {confirmDelete === a.id ? (
                             <>
@@ -309,7 +319,7 @@ export function HelpClient({
                                 disabled={pending}
                                 onClick={() => remove(a.id)}
                               >
-                                Evet, sil
+                                {c.confirmDelete}
                               </button>
                               <button
                                 type="button"
@@ -317,7 +327,7 @@ export function HelpClient({
                                 disabled={pending}
                                 onClick={() => setConfirmDelete(null)}
                               >
-                                Vazgeç
+                                {c.cancel}
                               </button>
                             </>
                           ) : (
@@ -327,16 +337,14 @@ export function HelpClient({
                               disabled={pending}
                               onClick={() => setConfirmDelete(a.id)}
                             >
-                              Sil
+                              {c.delete}
                             </button>
                           )}
                         </div>
                       ) : null}
 
                       {canManage && a.source === 'builtin' ? (
-                        <p className={styles.meta}>
-                          Yerleşik rehber — kodda tutulur, buradan düzenlenemez.
-                        </p>
+                        <p className={styles.meta}>{c.builtinNote}</p>
                       ) : null}
                     </div>
                   ) : null}

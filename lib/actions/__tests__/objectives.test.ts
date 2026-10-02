@@ -74,7 +74,10 @@ test('rejects a key result whose start equals its target', async () => {
     krs: [{ title: 'Hiç ilerlemeyecek bir KR', start: 50, target: 50, unit: '' }],
   })
   expect(res.ok).toBe(false)
-  if (!res.ok) expect(res.error).toContain('aynı olamaz')
+  if (!res.ok) {
+    expect(res.error.tr).toContain('aynı olamaz')
+    expect(res.error.en).toContain("can't be the same")
+  }
 })
 
 test('a staff record may not create an objective', async () => {
@@ -473,8 +476,9 @@ test('changing a healthy key result to start equal target is still rejected, nam
   })
   expect(res.ok).toBe(false)
   if (!res.ok) {
-    expect(res.error).toContain(victim.titleTr)
-    expect(res.error).toContain('aynı olamaz')
+    expect(res.error.tr).toContain(victim.titleTr)
+    expect(res.error.tr).toContain('aynı olamaz')
+    expect(res.error.en).toContain(victim.titleTr)
   }
 
   // Rejected wholesale: the key result keeps its original target.
@@ -506,7 +510,10 @@ test('adding a brand-new key result with start equal to target within an edit is
     ],
   })
   expect(res.ok).toBe(false)
-  if (!res.ok) expect(res.error).toContain('aynı olamaz')
+  if (!res.ok) {
+    expect(res.error.tr).toContain('aynı olamaz')
+    expect(res.error.en).toContain("can't be the same")
+  }
 
   // Nothing was added.
   expect(await krsOf(db, SAHA_OBJ)).toHaveLength(existing.length)

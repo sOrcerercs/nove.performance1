@@ -16,18 +16,13 @@ import {
   setUserState,
 } from '@/lib/actions/admin'
 import { canSignIn, type Role } from '@/lib/domain/types'
-import { tx } from '@/lib/i18n/strings'
+import type { Bilingual } from '@/lib/domain/types'
+import { ROLE_KEY, tx } from '@/lib/i18n/strings'
 import { usePrefs } from '@/lib/prefs/PrefsProvider'
 import type { AdminVm } from '@/lib/queries/admin'
 import type { AssignablePerson } from '@/lib/queries/people'
 import { DepartmentsTable } from './departments-table'
 import styles from './admin.module.css'
-
-const ROLE_LABEL: Record<Role, string> = {
-  admin: 'Yönetici',
-  executive: 'Üst Yönetim',
-  staff: 'Personel',
-}
 
 /** İK/Yönetim only — there are no department-lead or team-member accounts. */
 const ROLES: Role[] = ['admin', 'executive', 'staff']
@@ -89,7 +84,7 @@ export function AdminTables({
     : s === 'closed' ? t('stateClosed')
     : t('statePlanned')
 
-  async function run<T>(fn: () => Promise<{ ok: boolean; error?: string } & T>, okMsg: string) {
+  async function run<T>(fn: () => Promise<{ ok: boolean; error?: Bilingual } & T>, okMsg: string) {
     setError(null)
     const result = await fn()
     if (result.ok) {
@@ -97,7 +92,7 @@ export function AdminTables({
       refresh()
       return true
     }
-    setError(result.error ?? 'İşlem başarısız.')
+    setError(result.error ? tx(result.error, lang) : t('actionFailed'))
     return false
   }
 
@@ -110,7 +105,7 @@ export function AdminTables({
         departmentId: deptId || null,
         ...(canSignIn(role) ? { password } : {}),
       }),
-      'Kullanıcı eklendi',
+      t('toastUserAdded'),
     )
     if (ok) { setName(''); setEmail(''); setPassword('') }
   }
@@ -118,7 +113,7 @@ export function AdminTables({
   async function onCreatePeriod() {
     const ok = await run(
       () => createPeriod({ code: pCode, kind: 'year', startsOn: pStart, endsOn: pEnd }),
-      'Dönem eklendi',
+      t('toastPeriodAdded'),
     )
     if (ok) { setPCode(''); setPStart(''); setPEnd('') }
   }
@@ -126,14 +121,14 @@ export function AdminTables({
   async function onSaveRangeStart() {
     await run(
       () => setDefaultRangeStart({ startsOn: rangeStart }),
-      'Varsayılan tarih aralığı güncellendi',
+      t('toastRangeStartUpdated'),
     )
   }
 
   async function onResetPassword(userId: string) {
     const ok = await run(
       () => setUserPassword({ userId, password: resetPassword }),
-      'Parola güncellendi',
+      t('toastPasswordUpdated'),
     )
     if (ok) { setResetFor(null); setResetPassword('') }
   }
@@ -155,25 +150,25 @@ export function AdminTables({
         <div className={styles.inviteBar}>
           <input
             className={`${styles.input} ${styles.inputName}`}
-            placeholder="Ad Soyad" aria-label="Ad Soyad"
+            placeholder={t('fullName')} aria-label={t('fullName')}
             value={name} onChange={(e) => setName(e.target.value)}
           />
           <input
             className={`${styles.input} ${styles.inputEmail}`}
-            type="email" placeholder="ad.soyad@nove.group" aria-label="E-posta"
+            type="email" placeholder="ad.soyad@nove.group" aria-label={t('email')}
             value={email} onChange={(e) => setEmail(e.target.value)}
           />
           <select
             className={styles.select} aria-label={t('thRole')}
             value={role} onChange={(e) => setRole(e.target.value as Role)}
           >
-            {ROLES.map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
+            {ROLES.map((r) => <option key={r} value={r}>{t(ROLE_KEY[r])}</option>)}
           </select>
           <select
             className={styles.select} aria-label={t('thDept')}
             value={deptId} onChange={(e) => setDeptId(e.target.value)}
           >
-            <option value="">Bölüm —</option>
+            <option value="">{t('deptNone')}</option>
             {vm.departments.map((d) => (
               <option key={d.id} value={d.id}>{tx({ tr: d.nameTr, en: d.nameEn }, lang)}</option>
             ))}
@@ -182,7 +177,7 @@ export function AdminTables({
           {canSignIn(role) ? (
             <input
               className={styles.input} type="password" autoComplete="new-password"
-              placeholder="Parola (en az 12 karakter)" aria-label="Parola"
+              placeholder={t('passwordMinPh')} aria-label={t('password')}
               value={password} onChange={(e) => setPassword(e.target.value)}
             />
           ) : null}
@@ -191,7 +186,7 @@ export function AdminTables({
             disabled={pending || name.trim() === '' || email.trim() === ''}
             onClick={onCreateUser}
           >
-            Ekle
+            {t('add')}
           </button>
         </div>
 
@@ -216,7 +211,7 @@ export function AdminTables({
                       <Avatar name={u.name} />
                       <span>
                         <div className={styles.userName}>
-                          {u.name}{isSelf ? ' (sen)' : ''}
+                          {u.name}{isSelf ? ` (${t('youTag')})` : ''}
                         </div>
                         <div className={styles.userEmail}>{u.email}</div>
                       </span>
@@ -231,10 +226,10 @@ export function AdminTables({
                       disabled={pending || isSelf}
                       onChange={(e) =>
                         run(() => setUserRole({ userId: u.id, role: e.target.value as Role }),
-                            'Rol güncellendi')
+                            t('toastRoleUpdated'))
                       }
                     >
-                      {ROLES.map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
+                      {ROLES.map((r) => <option key={r} value={r}>{t(ROLE_KEY[r])}</option>)}
                     </select>
                   </td>
 
@@ -263,7 +258,7 @@ export function AdminTables({
                             setResetPassword('')
                           }}
                         >
-                          Parola
+                          {t('password')}
                         </button>
                       ) : null}
 
@@ -274,19 +269,19 @@ export function AdminTables({
                             run(() => setUserState({
                               userId: u.id,
                               state: u.state === 'passive' ? 'active' : 'passive',
-                            }), u.state === 'passive' ? 'Aktifleştirildi' : 'Pasifleştirildi')
+                            }), u.state === 'passive' ? t('toastActivated') : t('toastDeactivated'))
                           }
                         >
-                          {u.state === 'passive' ? 'Aktifleştir' : 'Pasifleştir'}
+                          {u.state === 'passive' ? t('activate') : t('deactivate')}
                         </button>
                       ) : null}
 
                       {!isSelf ? (
                         <button
                           type="button" className={styles.dangerBtn} disabled={pending}
-                          onClick={() => run(() => deleteUser({ userId: u.id }), 'Kullanıcı silindi')}
+                          onClick={() => run(() => deleteUser({ userId: u.id }), t('toastUserDeleted'))}
                         >
-                          Sil
+                          {t('delete')}
                         </button>
                       ) : null}
                     </div>
@@ -295,8 +290,8 @@ export function AdminTables({
                       <div className={styles.resetRow}>
                         <input
                           className={styles.input} type="password" autoComplete="new-password"
-                          placeholder="Yeni parola (en az 12 karakter)"
-                          aria-label={`${u.name} yeni parola`}
+                          placeholder={t('newPasswordMinPh')}
+                          aria-label={`${u.name} ${t('newPassword').toLowerCase()}`}
                           value={resetPassword}
                           onChange={(e) => setResetPassword(e.target.value)}
                         />
@@ -305,7 +300,7 @@ export function AdminTables({
                           disabled={pending || resetPassword.length < 12}
                           onClick={() => onResetPassword(u.id)}
                         >
-                          Kaydet
+                          {t('saveBtn')}
                         </button>
                       </div>
                     ) : null}
@@ -330,15 +325,15 @@ export function AdminTables({
           <input
             className={styles.input}
             placeholder="2027-FY"
-            aria-label="Dönem kodu"
+            aria-label={t('periodCode')}
             value={pCode} onChange={(e) => setPCode(e.target.value)}
           />
           <input
-            className={styles.input} type="date" aria-label="Başlangıç"
+            className={styles.input} type="date" aria-label={t('thStart')}
             value={pStart} onChange={(e) => setPStart(e.target.value)}
           />
           <input
-            className={styles.input} type="date" aria-label="Bitiş"
+            className={styles.input} type="date" aria-label={t('thEnd')}
             value={pEnd} onChange={(e) => setPEnd(e.target.value)}
           />
           <button
@@ -346,15 +341,15 @@ export function AdminTables({
             disabled={pending || !pCode || !pStart || !pEnd}
             onClick={onCreatePeriod}
           >
-            Ekle
+            {t('add')}
           </button>
         </div>
 
         <p className={styles.hintRow}>
-          Mali yıl <strong>Eylül</strong>'de başlar; koddaki yıl mali yılın
-          başladığı yıldır — <code>2026-FY</code> = 1 Eylül 2026 – 31 Ağustos 2027.
-          Bir dönemi <strong>{t('stateActive').toLowerCase()}</strong> yapmak diğer
-          aktif dönemi kapatır; uygulama tek bir açık döngüye göre açılır.
+          {t('fyNoteA')}<strong>{t('fyNoteMonth')}</strong>{t('fyNoteB')}{' '}
+          <code>2026-FY</code> {t('fyNoteRange')}{' '}
+          {t('fyNoteActiveA')} <strong>{t('stateActive').toLowerCase()}</strong>{' '}
+          {t('fyNoteActiveB')}
         </p>
 
         <table className={styles.table}>
@@ -362,8 +357,8 @@ export function AdminTables({
             <tr>
               <th scope="col" className={styles.th}>{t('period')}</th>
               <th scope="col" className={styles.th}>{t('thStatus')}</th>
-              <th scope="col" className={styles.th}>Başlangıç</th>
-              <th scope="col" className={styles.th}>Bitiş</th>
+              <th scope="col" className={styles.th}>{t('thStart')}</th>
+              <th scope="col" className={styles.th}>{t('thEnd')}</th>
             </tr>
           </thead>
           <tbody>
@@ -382,7 +377,7 @@ export function AdminTables({
                           periodId: p.id,
                           state: e.target.value as 'active' | 'closed' | 'planned',
                         }),
-                        'Dönem durumu güncellendi',
+                        t('toastPeriodStateUpdated'),
                       )
                     }
                   >
@@ -395,14 +390,14 @@ export function AdminTables({
                   <>
                     <td className={styles.td}>
                       <input
-                        className={styles.input} type="date" aria-label="Başlangıç"
+                        className={styles.input} type="date" aria-label={t('thStart')}
                         value={dStart} onChange={(e) => setDStart(e.target.value)}
                       />
                     </td>
                     <td className={styles.td}>
                       <div className={styles.editRow}>
                         <input
-                          className={styles.input} type="date" aria-label="Bitiş"
+                          className={styles.input} type="date" aria-label={t('thEnd')}
                           value={dEnd} onChange={(e) => setDEnd(e.target.value)}
                         />
                         <button
@@ -410,12 +405,12 @@ export function AdminTables({
                           onClick={async () => {
                             const done = await run(
                               () => updatePeriodDates({ periodId: p.id, startsOn: dStart, endsOn: dEnd }),
-                              'Dönem tarihleri güncellendi',
+                              t('toastPeriodDatesUpdated'),
                             )
                             if (done) setDateFor(null)
                           }}
                         >
-                          Kaydet
+                          {t('saveBtn')}
                         </button>
                         <button
                           type="button" className={styles.linkBtn}
@@ -440,7 +435,7 @@ export function AdminTables({
                             setDEnd(p.endsOn)
                           }}
                         >
-                          Tarihleri düzenle
+                          {t('editDates')}
                         </button>
                       </div>
                     </td>
@@ -469,7 +464,7 @@ export function AdminTables({
             disabled={pending || !rangeStart}
             onClick={onSaveRangeStart}
           >
-            Kaydet
+            {t('saveBtn')}
           </button>
         </div>
 

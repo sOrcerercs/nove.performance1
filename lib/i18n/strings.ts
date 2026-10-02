@@ -1,4 +1,4 @@
-import type { Bilingual, Lang } from '@/lib/domain/types'
+import type { Bilingual, Lang, Role } from '@/lib/domain/types'
 
 /**
  * UI copy, ported verbatim from the prototype. Turkish is authoritative: it is
@@ -13,7 +13,7 @@ export const STR = {
     rangeFrom:'Başlangıç', rangeTo:'Bitiş', apply:'Uygula',
     defaultRangeStart:'Varsayılan tarih aralığı başlangıcı',
     defaultRangeStartNote:'Mali yıl 1 Eylül\'de başlar. Bu tarih sabit kalırsa 1 Eylül 2026\'dan sonra varsayılan aralık iki mali yılı birden kapsar ve yüzdeler karışır; o tarihte bunu 2026-09-01 yapın.',
-    navHome:'Anasayfa', overview:'Performans Özeti', departments:'Bölümler', report:'Yönetici Raporu', admin:'Yönetim',
+    navHome:'Anasayfa', actionFailed:'İşlem başarısız.', overview:'Performans Özeti', departments:'Bölümler', report:'Yönetici Raporu', admin:'Yönetim',
     overviewTitle:'Performans Özeti', companyGoal:'Şirket Hedefi', overallProgress:'Genel ilerleme',
     quarterNote:'Yıllık hedef · haftalık check-in · KR ortalaması ile hesaplanır',
     deptRanking:'Bölüm sıralaması', sortedByProgress:'İlerlemeye göre sıralı',
@@ -66,7 +66,46 @@ export const STR = {
     rollupSum:'Toplam', rollupAvg:'Ortalama', rollupLast:'Son değer',
     latestData:'son veri', measuredKrs:'ölçülen KR',
     notMeasured:'ölçülmedi',
-    notMeasuredHint:'Bu kesite kadar veri girilmemiş — gösterilen rakam başlangıç değeri, objective ortalamasına katılmıyor.'
+    notMeasuredHint:'Bu kesite kadar veri girilmemiş — gösterilen rakam başlangıç değeri, objective ortalamasına katılmıyor.',
+    roleAdmin:'Yönetici', roleExecutive:'Üst Yönetim', roleStaff:'Personel',
+    add:'Ekle', saveBtn:'Kaydet', edit:'Düzenle', delete:'Sil', confirmDelete:'Evet, sil',
+    activate:'Aktifleştir', deactivate:'Pasifleştir', newTag:'yeni', youTag:'sen',
+    fullName:'Ad Soyad', email:'E-posta', password:'Parola', thEnd:'Bitiş',
+    deptNone:'Bölüm —', passwordMinPh:'Parola (en az 12 karakter)', newPasswordMinPh:'Yeni parola (en az 12 karakter)',
+    periodCode:'Dönem kodu', editDates:'Tarihleri düzenle',
+    fyNoteA:'Mali yıl ', fyNoteMonth:'Eylül', fyNoteB:'\'de başlar; koddaki yıl mali yılın başladığı yıldır —',
+    fyNoteRange:'= 1 Eylül 2026 – 31 Ağustos 2027.', fyNoteActiveA:'Bir dönemi',
+    fyNoteActiveB:'yapmak diğer aktif dönemi kapatır; uygulama tek bir açık döngüye göre açılır.',
+    toastUserAdded:'Kullanıcı eklendi', toastUserDeleted:'Kullanıcı silindi', toastRoleUpdated:'Rol güncellendi',
+    toastPasswordUpdated:'Parola güncellendi', toastActivated:'Aktifleştirildi', toastDeactivated:'Pasifleştirildi',
+    toastPeriodAdded:'Dönem eklendi', toastPeriodStateUpdated:'Dönem durumu güncellendi',
+    toastPeriodDatesUpdated:'Dönem tarihleri güncellendi', toastRangeStartUpdated:'Varsayılan tarih aralığı güncellendi',
+    deptNameTr:'Bölüm adı (TR)', deptNameEn:'Bölüm adı (EN)', nameTr:'Ad (TR)', nameEn:'Ad (EN)',
+    slugAria:'Kısa ad (URL)', slugPh:'kisa-ad', thSlug:'Kısa ad', thPeople:'Kişi', thOrder:'Sıra',
+    slugNoteA:'Kısa ad adreste görünür (', slugNoteB:') ve sonradan değiştirilemez — bağlantıları bozmamak için.',
+    moveUp:'yukarı', moveDown:'aşağı',
+    toastDeptAdded:'Bölüm eklendi', toastDeptUpdated:'Bölüm güncellendi', toastDeptDeleted:'Bölüm silindi', toastOrderChanged:'Sıra değişti',
+    cannotDelete:'Silinemez.',
+    deptDeleteBlocked:'Bu bölümde {objectives}, {krs} ve {checkins} kaydı var. Silmek bu geçmişi de götürür — önce objective’leri kaldır.',
+    willBeDeleted:'silinecek.', deptDeleteUsers:'{n} kişinin bölümü boşaltılacak (kişiler silinmez).',
+    deptDeleteNoLinks:'Bağlı kişi veya objective yok.',
+    myAccount:'Hesabım', changePassword:'Parola değiştir',
+    passwordLead:'En az {n} karakter. Mevcut parolan, oturumun açık olsa bile doğrulanır.',
+    currentPassword:'Mevcut parola', newPassword:'Yeni parola', newPasswordAgain:'Yeni parola (tekrar)',
+    charsNeeded:'{n} karakter daha gerekli.', passwordsMismatch:'Parolalar eşleşmiyor.',
+    updatePassword:'Parolayı güncelle', toastOwnPasswordUpdated:'Parolan güncellendi',
+    userGuide:'Kullanım kılavuzu', signOut:'Çıkış', mainNav:'Ana gezinme', language:'Dil',
+    ownerMeUnassigned:'Ben (sorumlu atanmadı)', objectiveOwner:'Objective sorumlusu',
+    currentBlankNote:'boş bırakılırsa başlangıç değeri kullanılır (%0). Geçmiş dönem girerken ulaşılan değeri yazın.',
+    noOpenPeriodAdmin:'Açık bir dönem yok. Yönetim ekranından bir dönemi aktif yapın.',
+    editObjective:'Objective’i düzenle', toastObjectiveUpdated:'Objective güncellendi', toastObjectiveDeleted:'Objective silindi',
+    cannotUndo:'Bu işlem geri alınamaz.', objectiveDeleteImpact:'Objective ile birlikte {krs} ve {checkins} kaydı silinecek.',
+    invalidNumber:'Geçerli bir sayı gir.', noCheckinKrs:'Check-in yapabileceğin key result yok.',
+    noAttentionKrs:'Müdahale gereken key result yok.',
+    errorTitle:'Bir şeyler ters gitti',
+    errorBody:'Bu ekran yüklenirken beklenmeyen bir hata oluştu. Tekrar denemek sorunu çözebilir; sürerse veritabanı bağlantısını kontrol edin.',
+    errorCode:'Hata kodu:', retry:'Tekrar dene', backToOverview:'Performans Özeti’ne dön',
+    notFoundTitle:'Sayfa bulunamadı', notFoundBody:'Aradığınız kayıt silinmiş olabilir ya da seçili dönemde bulunmuyor.'
   },
   en: {
     brandSub:'Performance', navGroupMain:'General', navGroupDepts:'Departments', roleHR:'HR Director',
@@ -76,7 +115,7 @@ export const STR = {
     rangeFrom:'From', rangeTo:'To', apply:'Apply',
     defaultRangeStart:'Default range start',
     defaultRangeStartNote:'The fiscal year starts on 1 September. If this date stays fixed, after 1 September 2026 the default range will span two fiscal years and mix their percentages; set it to 2026-09-01 then.',
-    navHome:'Home', overview:'Performance Overview', departments:'Departments', report:'Executive Report', admin:'Admin',
+    navHome:'Home', actionFailed:'The action failed.', overview:'Performance Overview', departments:'Departments', report:'Executive Report', admin:'Admin',
     overviewTitle:'Performance Overview', companyGoal:'Company Goal', overallProgress:'Overall progress',
     quarterNote:'Annual goal · weekly check-in · simple KR average',
     deptRanking:'Department ranking', sortedByProgress:'Sorted by progress',
@@ -129,7 +168,46 @@ export const STR = {
     rollupSum:'Sum', rollupAvg:'Average', rollupLast:'Last value',
     latestData:'last data', measuredKrs:'measured KRs',
     notMeasured:'not measured',
-    notMeasuredHint:'No data entered up to this cutoff — the figure shown is the start value and it is left out of the objective average.'
+    notMeasuredHint:'No data entered up to this cutoff — the figure shown is the start value and it is left out of the objective average.',
+    roleAdmin:'Admin', roleExecutive:'Executive', roleStaff:'Staff',
+    add:'Add', saveBtn:'Save', edit:'Edit', delete:'Delete', confirmDelete:'Yes, delete',
+    activate:'Activate', deactivate:'Deactivate', newTag:'new', youTag:'you',
+    fullName:'Full name', email:'Email', password:'Password', thEnd:'End',
+    deptNone:'Department —', passwordMinPh:'Password (at least 12 characters)', newPasswordMinPh:'New password (at least 12 characters)',
+    periodCode:'Period code', editDates:'Edit dates',
+    fyNoteA:'The fiscal year starts in ', fyNoteMonth:'September', fyNoteB:'; the year in the code is the year the fiscal year starts —',
+    fyNoteRange:'= 1 September 2026 – 31 August 2027.', fyNoteActiveA:'Making a period',
+    fyNoteActiveB:'closes the other active period; the app runs on a single open cycle.',
+    toastUserAdded:'User added', toastUserDeleted:'User deleted', toastRoleUpdated:'Role updated',
+    toastPasswordUpdated:'Password updated', toastActivated:'Activated', toastDeactivated:'Deactivated',
+    toastPeriodAdded:'Period added', toastPeriodStateUpdated:'Period status updated',
+    toastPeriodDatesUpdated:'Period dates updated', toastRangeStartUpdated:'Default date range updated',
+    deptNameTr:'Department name (TR)', deptNameEn:'Department name (EN)', nameTr:'Name (TR)', nameEn:'Name (EN)',
+    slugAria:'Short name (URL)', slugPh:'short-name', thSlug:'Short name', thPeople:'People', thOrder:'Order',
+    slugNoteA:'The short name appears in the address (', slugNoteB:') and cannot be changed later, so links do not break.',
+    moveUp:'move up', moveDown:'move down',
+    toastDeptAdded:'Department added', toastDeptUpdated:'Department updated', toastDeptDeleted:'Department deleted', toastOrderChanged:'Order changed',
+    cannotDelete:'Cannot be deleted.',
+    deptDeleteBlocked:'This department has {objectives}, {krs} and {checkins}. Deleting it would take that history too — remove the objectives first.',
+    willBeDeleted:'will be deleted.', deptDeleteUsers:'People who will lose this department: {n} (they are not deleted).',
+    deptDeleteNoLinks:'No linked people or objectives.',
+    myAccount:'My account', changePassword:'Change password',
+    passwordLead:'At least {n} characters. Your current password is checked even though you are signed in.',
+    currentPassword:'Current password', newPassword:'New password', newPasswordAgain:'New password (again)',
+    charsNeeded:'{n} more character(s) needed.', passwordsMismatch:'Passwords do not match.',
+    updatePassword:'Update password', toastOwnPasswordUpdated:'Your password was updated',
+    userGuide:'User guide', signOut:'Sign out', mainNav:'Main navigation', language:'Language',
+    ownerMeUnassigned:'Me (no owner assigned)', objectiveOwner:'Objective owner',
+    currentBlankNote:'left blank uses the start value (0%). When entering a past period, type the value reached.',
+    noOpenPeriodAdmin:'There is no open period. Make a period active on the Admin screen.',
+    editObjective:'Edit objective', toastObjectiveUpdated:'Objective updated', toastObjectiveDeleted:'Objective deleted',
+    cannotUndo:'This cannot be undone.', objectiveDeleteImpact:'Its {krs} and {checkins} will be deleted along with the objective.',
+    invalidNumber:'Enter a valid number.', noCheckinKrs:'There are no key results you can check in.',
+    noAttentionKrs:'No key results need action.',
+    errorTitle:'Something went wrong',
+    errorBody:'An unexpected error occurred while loading this screen. Trying again may fix it; if it persists, check the database connection.',
+    errorCode:'Error code:', retry:'Try again', backToOverview:'Back to Performance Overview',
+    notFoundTitle:'Page not found', notFoundBody:'The record you are looking for may have been deleted or is not in the selected period.'
   }
 } as const
 
@@ -139,4 +217,16 @@ export type StringKey = keyof typeof STR.tr
 export function tx(o: Bilingual | null | undefined, lang: Lang): string {
   if (!o) return ''
   return (lang === 'en' ? o.en : o.tr) || o.tr
+}
+
+/** The string key for each role's display name. */
+export const ROLE_KEY: Record<Role, StringKey> = {
+  admin: 'roleAdmin',
+  executive: 'roleExecutive',
+  staff: 'roleStaff',
+}
+
+/** Fills `{name}` placeholders in a dictionary string. */
+export function fill(template: string, vars: Record<string, string | number>): string {
+  return template.replace(/\{(\w+)\}/g, (m, k: string) => (k in vars ? String(vars[k]) : m))
 }

@@ -168,7 +168,8 @@ test('a malformed month is refused', async () => {
 test('someone without check-in permission cannot write', async () => {
   const db = await seeded()
   const r = await setMonthlyValueAs(db, executive, { krId: 'k-sat-italya', month: '2025-09', value: 40 })
-  expect(r).toEqual({ ok: false, error: 'Bu işlem için yetkiniz yok.' })
+  expect(r).toEqual({ ok: false, error: FORBIDDEN })
+  if (!r.ok) expect(r.error.tr).toBe('Bu işlem için yetkiniz yok.')
 })
 
 test('nothing outside setMonthlyValue writes the derived summary', async () => {

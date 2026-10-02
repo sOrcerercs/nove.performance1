@@ -103,3 +103,24 @@ export function formatAsOf(date: string, lang: Lang): string {
 export function isBeforeCutoff(month: string | null, asOfMonth: string | undefined): month is string {
   return month !== null && asOfMonth !== undefined && month < asOfMonth
 }
+
+/**
+ * A count with its noun: `3 objective` in Turkish, which never pluralises
+ * after a number, and `3 objectives` / `1 objective` in English. Only for
+ * nouns spelled the same in both languages — objective, key result, check-in.
+ * "KR" is an abbreviation and is not passed through here.
+ */
+export function formatCount(n: number, noun: string, lang: Lang): string {
+  return lang === 'en' && n !== 1 ? `${n} ${noun}s` : `${n} ${noun}`
+}
+
+/** Elapsed whole days as a phrase: `3 gün önce` / `3 days ago`, `1 day ago`. */
+export function formatDaysAgo(days: number, lang: Lang): string {
+  if (lang === 'tr') return `${days} gün önce`
+  return days === 1 ? '1 day ago' : `${days} days ago`
+}
+
+/** `3 gün önce güncellendi` / `updated 3 days ago`. */
+export function formatUpdatedAgo(days: number, lang: Lang): string {
+  return lang === 'tr' ? `${formatDaysAgo(days, 'tr')} güncellendi` : `updated ${formatDaysAgo(days, 'en')}`
+}

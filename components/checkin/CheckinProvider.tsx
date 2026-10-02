@@ -5,7 +5,7 @@ import { createContext, useCallback, useContext, useEffect, useState } from 'rea
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import { useToast } from '@/components/ui/ToastProvider'
 import { submitCheckin } from '@/lib/actions/checkins'
-import { formatValue } from '@/lib/domain/format'
+import { formatDaysAgo, formatValue } from '@/lib/domain/format'
 import { krPct } from '@/lib/domain/progress'
 import type { Confidence } from '@/lib/domain/types'
 import { tx } from '@/lib/i18n/strings'
@@ -75,7 +75,7 @@ export function CheckinProvider({
     if (!selected) return
     const parsed = Number(value)
     if (!Number.isFinite(parsed)) {
-      setError('Geçerli bir sayı gir.')
+      setError(t('invalidNumber'))
       return
     }
 
@@ -94,7 +94,7 @@ export function CheckinProvider({
       close()
       router.refresh()
     } else {
-      setError(result.error)
+      setError(tx(result.error, lang))
     }
     setPending(false)
   }
@@ -130,7 +130,7 @@ export function CheckinProvider({
 
             {!selected ? (
               candidates.length === 0 ? (
-                <p className={styles.empty}>Check-in yapabileceğin key result yok.</p>
+                <p className={styles.empty}>{t('noCheckinKrs')}</p>
               ) : (
                 <div className={styles.list}>
                   {candidates.map((c) => (
@@ -144,7 +144,7 @@ export function CheckinProvider({
                           {formatValue(c.current, c.unit, lang)} → {formatValue(c.target, c.unit, lang)}
                           {' · '}
                           <span className={c.daysSinceUpdate >= STALE_DAYS ? styles.stale : undefined}>
-                            {c.daysSinceUpdate} gün önce
+                            {formatDaysAgo(c.daysSinceUpdate, lang)}
                           </span>
                         </span>
                       </span>

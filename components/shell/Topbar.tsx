@@ -48,7 +48,7 @@ export function Topbar({ overline, title, selection }: Props) {
         {compact ? '▤' : '▥'} {t('compactMode')}
       </button>
 
-      <div className={styles.segmented} role="group" aria-label="Dil">
+      <div className={styles.segmented} role="group" aria-label={t('language')}>
         {(['tr', 'en'] as Lang[]).map((l) => (
           <button
             key={l}

@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { useToast } from '@/components/ui/ToastProvider'
 import { createObjective } from '@/lib/actions/objectives'
+import { tx } from '@/lib/i18n/strings'
 import { usePrefs } from '@/lib/prefs/PrefsProvider'
 import type { AssignablePerson } from '@/lib/queries/people'
 import { titleHint } from '@/lib/validation/objective'
@@ -100,7 +101,7 @@ export function Wizard({
       router.push(`/bolum/${result.data.deptSlug}`)
       router.refresh()
     } else {
-      setError(result.error)
+      setError(tx(result.error, lang))
       setPending(false)
     }
   }
@@ -162,7 +163,7 @@ export function Wizard({
                 value={ownerUserId}
                 onChange={(e) => setOwnerUserId(e.target.value)}
               >
-                <option value="">Ben ({t('owner').toLowerCase()} atanmadı)</option>
+                <option value="">{t('ownerMeUnassigned')}</option>
                 {peopleFor(people, deptId).map((p) => (
                   <option key={p.id} value={p.id}>{p.name}</option>
                 ))}
@@ -262,7 +263,7 @@ export function Wizard({
                     aria-label={`${t('fieldKr')} ${i + 1} ${t('fieldOwner')}`}
                     onChange={(e) => editKr(i, { ownerUserId: e.target.value })}
                   >
-                    <option value="">Objective sorumlusu</option>
+                    <option value="">{t('objectiveOwner')}</option>
                     {peopleFor(people, deptId).map((p) => (
                       <option key={p.id} value={p.id}>{p.name}</option>
                     ))}
@@ -281,8 +282,7 @@ export function Wizard({
             + {t('addKr')}
           </button>
           <p className={styles.countHint}>
-            {t('krCountHint')} · <strong>Güncel</strong> boş bırakılırsa başlangıç
-            değeri kullanılır (%0). Geçmiş dönem girerken ulaşılan değeri yazın.
+            {t('krCountHint')} · <strong>{t('thCurrent')}</strong> {t('currentBlankNote')}
           </p>
 
           {error ? <p className={styles.error} role="alert">{error}</p> : null}

@@ -4,7 +4,7 @@ import { BarChart } from '@/components/charts/BarChart'
 import { DonutChart } from '@/components/charts/DonutChart'
 import { TrendChart, TrendLegend } from '@/components/charts/TrendChart'
 import { KpiCard } from '@/components/ui/KpiCard'
-import { formatAsOf } from '@/lib/domain/format'
+import { formatAsOf, formatCount } from '@/lib/domain/format'
 import { tx } from '@/lib/i18n/strings'
 import { usePrefs, type LayoutVariant } from '@/lib/prefs/PrefsProvider'
 import type { OverviewVm } from '@/lib/queries/overview'
@@ -76,7 +76,7 @@ export function OverviewClient({
       <div className={styles.sectionHead}>
         <h2 className={styles.sectionTitle}>{t('departments')}</h2>
         <span className={styles.sectionMeta}>
-          {vm.kpis.depts} · {vm.kpis.objectives} {t('objective').toLowerCase()} · {vm.kpis.krs} KR
+          {vm.kpis.depts} · {formatCount(vm.kpis.objectives, 'objective', lang)} · {vm.kpis.krs} KR
         </span>
       </div>
       <div className={styles.deptGrid}>

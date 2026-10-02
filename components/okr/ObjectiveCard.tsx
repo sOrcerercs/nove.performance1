@@ -7,7 +7,7 @@ import { Topbar } from '@/components/shell/Topbar'
 import { Avatar } from '@/components/ui/Avatar'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import { StatusBadge } from '@/components/ui/StatusBadge'
-import { formatAsOf } from '@/lib/domain/format'
+import { formatAsOf, formatCount } from '@/lib/domain/format'
 import { STATUS_VARS, statusOf } from '@/lib/domain/status'
 import { tx } from '@/lib/i18n/strings'
 import { usePrefs } from '@/lib/prefs/PrefsProvider'
@@ -30,8 +30,7 @@ import styles from '@/app/(app)/okr.module.css'
 /** "3 objective · 8 KR", the prototype's `deptModel.meta`. */
 function countsLabel(objectives: ObjectiveVm[], lang: 'tr' | 'en'): string {
   const krCount = objectives.reduce((a, o) => a + o.krs.length, 0)
-  const objWord = lang === 'tr' ? 'objective' : objectives.length === 1 ? 'objective' : 'objectives'
-  return `${objectives.length} ${objWord} · ${krCount} KR`
+  return `${formatCount(objectives.length, 'objective', lang)} · ${krCount} KR`
 }
 
 export function ObjectiveCard({

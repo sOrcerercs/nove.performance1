@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
+import { usePrefs } from '@/lib/prefs/PrefsProvider'
 import styles from './error.module.css'
 
 /**
@@ -18,6 +19,8 @@ export default function AppError({
   error: Error & { digest?: string }
   reset: () => void
 }) {
+  const { t } = usePrefs()
+
   useEffect(() => {
     // The digest is what correlates this screen with the server log entry;
     // the message itself is withheld from the client in production.
@@ -28,22 +31,21 @@ export default function AppError({
     <main className={styles.wrap}>
       <div className={styles.card}>
         <span className={styles.icon} aria-hidden="true">⚠️</span>
-        <h1 className={styles.title}>Bir şeyler ters gitti</h1>
+        <h1 className={styles.title}>{t('errorTitle')}</h1>
         <p className={styles.body}>
-          Bu ekran yüklenirken beklenmeyen bir hata oluştu. Tekrar denemek
-          sorunu çözebilir; sürerse veritabanı bağlantısını kontrol edin.
+          {t('errorBody')}
         </p>
         {error.digest ? (
           <p className={styles.digest}>
-            Hata kodu: <code>{error.digest}</code>
+            {t('errorCode')} <code>{error.digest}</code>
           </p>
         ) : null}
         <div className={styles.actions}>
           <button type="button" className={styles.primary} onClick={reset}>
-            Tekrar dene
+            {t('retry')}
           </button>
           <a className={styles.secondary} href="/">
-            Performans Özeti’ne dön
+            {t('backToOverview')}
           </a>
         </div>
       </div>

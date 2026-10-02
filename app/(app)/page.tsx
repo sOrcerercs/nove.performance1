@@ -4,6 +4,7 @@ import shell from '@/components/shell/shell.module.css'
 import { requireUser } from '@/lib/auth/session'
 import { asOfCutoff, todayInIstanbul } from '@/lib/domain/dates'
 import { getDb } from '@/lib/db'
+import { getT } from '@/lib/i18n/server'
 import { getOverview } from '@/lib/queries/overview'
 import { resolveRange } from '@/lib/queries/range'
 
@@ -14,6 +15,7 @@ export default async function OverviewPage({
 }) {
   await requireUser()
   const db = await getDb()
+  const t = await getT()
   const selection = await resolveRange(db, await searchParams)
   const now = new Date()
   // Never past today: see `asOfCutoff`. The client gets the same clamped date,
@@ -24,7 +26,7 @@ export default async function OverviewPage({
 
   return (
     <>
-      <Topbar overline="Performans Özeti" title="Performans Özeti" selection={selection} />
+      <Topbar overline={t('overviewTitle')} title={t('overviewTitle')} selection={selection} />
       <main className={shell.content}>
         <OverviewClient vm={vm} asOf={asOf} today={todayInIstanbul(now)} />
       </main>

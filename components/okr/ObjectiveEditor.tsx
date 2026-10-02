@@ -10,7 +10,9 @@ import {
   updateObjective,
 } from '@/lib/actions/objectives'
 import { todayInIstanbul } from '@/lib/domain/dates'
+import { formatCount } from '@/lib/domain/format'
 import type { Confidence, RollupRule } from '@/lib/domain/types'
+import { fill, tx } from '@/lib/i18n/strings'
 import { usePrefs } from '@/lib/prefs/PrefsProvider'
 import type { ObjectiveDetailVm } from '@/lib/queries/department'
 import type { AssignablePerson } from '@/lib/queries/people'
@@ -128,11 +130,11 @@ export function ObjectiveEditor({
     })
 
     if (result.ok) {
-      toast('Objective güncellendi')
+      toast(t('toastObjectiveUpdated'))
       setOpen(false)
       router.refresh()
     } else {
-      setError(result.error)
+      setError(tx(result.error, lang))
     }
     setPending(false)
   }
@@ -141,18 +143,18 @@ export function ObjectiveEditor({
     setError(null)
     const result = await objectiveDeletionImpact(obj.id)
     if (result.ok) setImpact(result.data)
-    else setError(result.error)
+    else setError(tx(result.error, lang))
   }
 
   async function confirmDelete() {
     setPending(true)
     const result = await deleteObjective({ id: obj.id })
     if (result.ok) {
-      toast('Objective silindi')
+      toast(t('toastObjectiveDeleted'))
       router.push(`/bolum/${result.data.deptSlug}`)
       router.refresh()
     } else {
-      setError(result.error)
+      setError(tx(result.error, lang))
       setPending(false)
     }
   }
@@ -161,10 +163,10 @@ export function ObjectiveEditor({
     return (
       <div className={styles.bar}>
         <button type="button" className={styles.secondary} onClick={() => setOpen(true)}>
-          Düzenle
+          {t('edit')}
         </button>
         <button type="button" className={styles.danger} onClick={askDelete}>
-          Sil
+          {t('delete')}
         </button>
 
         {error ? <p className={styles.error} role="alert">{error}</p> : null}
@@ -172,8 +174,11 @@ export function ObjectiveEditor({
         {impact ? (
           <div className={styles.confirm} role="alertdialog">
             <p className={styles.confirmText}>
-              <strong>Bu işlem geri alınamaz.</strong> Objective ile birlikte{' '}
-              {impact.keyResults} key result ve {impact.checkins} check-in kaydı silinecek.
+              <strong>{t('cannotUndo')}</strong>{' '}
+              {fill(t('objectiveDeleteImpact'), {
+                krs: formatCount(impact.keyResults, 'key result', lang),
+                checkins: formatCount(impact.checkins, 'check-in', lang),
+              })}
             </p>
             <div className={styles.confirmActions}>
               <button
@@ -186,7 +191,7 @@ export function ObjectiveEditor({
                 type="button" className={styles.danger}
                 onClick={confirmDelete} disabled={pending}
               >
-                {pending ? '…' : 'Evet, sil'}
+                {pending ? '…' : t('confirmDelete')}
               </button>
             </div>
           </div>
@@ -197,7 +202,7 @@ export function ObjectiveEditor({
 
   return (
     <div className={styles.panel}>
-      <h3 className={styles.panelTitle}>Objective’i düzenle</h3>
+      <h3 className={styles.panelTitle}>{t('editObjective')}</h3>
 
       <div className={styles.field}>
         <label className={styles.label} htmlFor="obj-title">{t('fieldObjective')}</label>
@@ -226,7 +231,7 @@ export function ObjectiveEditor({
         <div className={styles.krCard} key={i}>
           <div className={styles.krHead}>
             <span className={styles.krIndex}>
-              {t('fieldKr')} {i + 1}{kr.id ? '' : ' · yeni'}
+              {t('fieldKr')} {i + 1}{kr.id ? '' : ` · ${t('newTag')}`}
             </span>
             <button
               type="button" className={styles.remove} disabled={krs.length <= 1}
@@ -315,7 +320,7 @@ export function ObjectiveEditor({
                 aria-label={`${t('fieldKr')} ${i + 1} ${t('fieldOwner')}`}
                 onChange={(e) => editKr(i, { ownerUserId: e.target.value })}
               >
-                <option value="">Objective sorumlusu</option>
+                <option value="">{t('objectiveOwner')}</option>
                 {peopleFor(people, obj.deptId).map((p) => (
                   <option key={p.id} value={p.id}>{p.name}</option>
                 ))}

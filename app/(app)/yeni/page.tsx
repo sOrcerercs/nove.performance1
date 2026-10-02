@@ -5,6 +5,7 @@ import shell from '@/components/shell/shell.module.css'
 import { can } from '@/lib/auth/permissions'
 import { requireUser } from '@/lib/auth/session'
 import { getDb } from '@/lib/db'
+import { getT } from '@/lib/i18n/server'
 import { departments } from '@/lib/db/schema'
 import { getAssignablePeople } from '@/lib/queries/people'
 import { activePeriodOf, resolveRange, type PeriodOption } from '@/lib/queries/range'
@@ -18,6 +19,7 @@ export default async function NewObjectivePage({
 }) {
   const user = await requireUser()
   const db = await getDb()
+  const t = await getT()
 
   const selection = await resolveRange(db, await searchParams)
   // The open period is looked up among every period, independent of the
@@ -35,7 +37,7 @@ export default async function NewObjectivePage({
   if (!openPeriod) {
     return (
       <main className={shell.content}>
-        Açık bir dönem yok. Yönetim ekranından bir dönemi aktif yapın.
+        {t('noOpenPeriodAdmin')}
       </main>
     )
   }
@@ -54,7 +56,7 @@ export default async function NewObjectivePage({
 
   return (
     <>
-      <Topbar overline="Yeni Objective" title="Yeni Objective" selection={selection} />
+      <Topbar overline={t('newObjective')} title={t('newObjective')} selection={selection} />
       <main className={shell.content}>
         <Wizard
           depts={allowed}

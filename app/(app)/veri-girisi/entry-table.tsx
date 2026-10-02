@@ -94,7 +94,7 @@ export function EntryTable({ vm }: { vm: MonthlyEntryVm }) {
     setPending(false)
 
     if (!result.ok) {
-      setError(result.error)
+      setError(tx(result.error, lang))
       return
     }
     const failed = result.data.filter((r) => !r.ok)

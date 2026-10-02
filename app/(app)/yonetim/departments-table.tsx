@@ -10,6 +10,9 @@ import {
   moveDepartment,
   updateDepartment,
 } from '@/lib/actions/departments'
+import { formatCount } from '@/lib/domain/format'
+import type { Bilingual } from '@/lib/domain/types'
+import { fill, tx } from '@/lib/i18n/strings'
 import { usePrefs } from '@/lib/prefs/PrefsProvider'
 import type { AdminDepartment } from '@/lib/queries/admin'
 import type { AssignablePerson } from '@/lib/queries/people'
@@ -37,7 +40,7 @@ export function DepartmentsTable({
   rows: AdminDepartment[]
   people: AssignablePerson[]
 }) {
-  const { t } = usePrefs()
+  const { t, lang } = usePrefs()
   const router = useRouter()
   const toast = useToast()
   const [pending, startTransition] = useTransition()
@@ -60,7 +63,7 @@ export function DepartmentsTable({
   const refresh = () => startTransition(() => router.refresh())
 
   async function run(
-    fn: () => Promise<{ ok: boolean; error?: string }>,
+    fn: () => Promise<{ ok: boolean; error?: Bilingual }>,
     okMsg: string,
   ): Promise<boolean> {
     setError(null)
@@ -70,14 +73,14 @@ export function DepartmentsTable({
       refresh()
       return true
     }
-    setError(result.error ?? 'İşlem başarısız.')
+    setError(result.error ? tx(result.error, lang) : t('actionFailed'))
     return false
   }
 
   async function onCreate() {
     const ok = await run(
       () => createDepartment({ slug, emoji, nameTr, nameEn, leadUserId: null }),
-      'Bölüm eklendi',
+      t('toastDeptAdded'),
     )
     if (ok) { setSlug(''); setEmoji(''); setNameTr(''); setNameEn('') }
   }
@@ -102,7 +105,7 @@ export function DepartmentsTable({
         nameEn: draft.nameEn,
         leadUserId: draft.leadUserId || null,
       }),
-      'Bölüm güncellendi',
+      t('toastDeptUpdated'),
     )
     if (ok) setEditing(null)
   }
@@ -111,11 +114,11 @@ export function DepartmentsTable({
     setError(null)
     const result = await departmentDeletionImpact(id)
     if (result.ok) setImpact({ id, data: result.data })
-    else setError(result.error)
+    else setError(tx(result.error, lang))
   }
 
   async function confirmDelete(id: string) {
-    const ok = await run(() => deleteDepartment({ id }), 'Bölüm silindi')
+    const ok = await run(() => deleteDepartment({ id }), t('toastDeptDeleted'))
     if (ok) setImpact(null)
   }
 
@@ -134,17 +137,17 @@ export function DepartmentsTable({
         />
         <input
           className={`${styles.input} ${styles.inputName}`}
-          placeholder="Bölüm adı (TR)" aria-label="Bölüm adı (TR)"
+          placeholder={t('deptNameTr')} aria-label={t('deptNameTr')}
           value={nameTr} onChange={(e) => setNameTr(e.target.value)}
         />
         <input
           className={`${styles.input} ${styles.inputName}`}
-          placeholder="Department name (EN)" aria-label="Bölüm adı (EN)"
+          placeholder="Department name (EN)" aria-label={t('deptNameEn')}
           value={nameEn} onChange={(e) => setNameEn(e.target.value)}
         />
         <input
           className={styles.input} style={{ maxWidth: 150 }}
-          placeholder="kisa-ad" aria-label="Kısa ad (URL)"
+          placeholder={t('slugPh')} aria-label={t('slugAria')}
           value={slug} onChange={(e) => setSlug(e.target.value)}
         />
         <button
@@ -152,13 +155,12 @@ export function DepartmentsTable({
           disabled={pending || !emoji || !nameTr.trim() || !nameEn.trim() || !slug.trim()}
           onClick={onCreate}
         >
-          Ekle
+          {t('add')}
         </button>
       </div>
 
       <p className={styles.hintRow}>
-        Kısa ad adreste görünür (<code>/bolum/kisa-ad</code>) ve sonradan
-        değiştirilemez — bağlantıları bozmamak için.
+        {t('slugNoteA')}<code>/bolum/{t('slugPh')}</code>{t('slugNoteB')}
       </p>
 
       {error ? <p className={styles.error} role="alert">{error}</p> : null}
@@ -167,11 +169,11 @@ export function DepartmentsTable({
         <thead>
           <tr>
             <th scope="col" className={styles.th}>{t('thDept')}</th>
-            <th scope="col" className={styles.th}>Kısa ad</th>
+            <th scope="col" className={styles.th}>{t('thSlug')}</th>
             <th scope="col" className={styles.th}>{t('owner')}</th>
             <th scope="col" className={`${styles.th} ${styles.thNum}`}>{t('thObjectives')}</th>
-            <th scope="col" className={`${styles.th} ${styles.thNum}`}>Kişi</th>
-            <th scope="col" className={styles.th}>Sıra</th>
+            <th scope="col" className={`${styles.th} ${styles.thNum}`}>{t('thPeople')}</th>
+            <th scope="col" className={styles.th}>{t('thOrder')}</th>
             <th scope="col" className={styles.th}>{t('thAction')}</th>
           </tr>
         </thead>
@@ -188,11 +190,11 @@ export function DepartmentsTable({
                         onChange={(e) => setDraft({ ...draft, emoji: e.target.value })}
                       />
                       <input
-                        className={styles.input} aria-label="Ad (TR)" value={draft.nameTr}
+                        className={styles.input} aria-label={t('nameTr')} value={draft.nameTr}
                         onChange={(e) => setDraft({ ...draft, nameTr: e.target.value })}
                       />
                       <input
-                        className={styles.input} aria-label="Ad (EN)" value={draft.nameEn}
+                        className={styles.input} aria-label={t('nameEn')} value={draft.nameEn}
                         onChange={(e) => setDraft({ ...draft, nameEn: e.target.value })}
                       />
                     </div>
@@ -219,7 +221,7 @@ export function DepartmentsTable({
                         type="button" className={styles.linkBtn} disabled={pending}
                         onClick={() => saveEdit(d.id)}
                       >
-                        Kaydet
+                        {t('saveBtn')}
                       </button>
                       <button
                         type="button" className={styles.linkBtn} disabled={pending}
@@ -244,15 +246,15 @@ export function DepartmentsTable({
                     <div className={styles.actions}>
                       <button
                         type="button" className={styles.linkBtn}
-                        aria-label={`${d.nameTr} yukarı`} disabled={pending || i === 0}
-                        onClick={() => run(() => moveDepartment({ id: d.id, direction: 'up' }), 'Sıra değişti')}
+                        aria-label={`${tx({ tr: d.nameTr, en: d.nameEn }, lang)} ${t('moveUp')}`} disabled={pending || i === 0}
+                        onClick={() => run(() => moveDepartment({ id: d.id, direction: 'up' }), t('toastOrderChanged'))}
                       >
                         ↑
                       </button>
                       <button
                         type="button" className={styles.linkBtn}
-                        aria-label={`${d.nameTr} aşağı`} disabled={pending || i === rows.length - 1}
-                        onClick={() => run(() => moveDepartment({ id: d.id, direction: 'down' }), 'Sıra değişti')}
+                        aria-label={`${tx({ tr: d.nameTr, en: d.nameEn }, lang)} ${t('moveDown')}`} disabled={pending || i === rows.length - 1}
+                        onClick={() => run(() => moveDepartment({ id: d.id, direction: 'down' }), t('toastOrderChanged'))}
                       >
                         ↓
                       </button>
@@ -264,13 +266,13 @@ export function DepartmentsTable({
                         type="button" className={styles.linkBtn} disabled={pending}
                         onClick={() => startEdit(d)}
                       >
-                        Düzenle
+                        {t('edit')}
                       </button>
                       <button
                         type="button" className={styles.dangerBtn} disabled={pending}
                         onClick={() => askDelete(d.id)}
                       >
-                        Sil
+                        {t('delete')}
                       </button>
                     </div>
 
@@ -278,17 +280,19 @@ export function DepartmentsTable({
                       <div className={styles.confirmBox} role="alertdialog">
                         {impact.data.objectives > 0 ? (
                           <p className={styles.confirmText}>
-                            <strong>Silinemez.</strong> Bu bölümde {impact.data.objectives}{' '}
-                            objective, {impact.data.keyResults} key result ve{' '}
-                            {impact.data.checkins} check-in kaydı var. Silmek bu geçmişi de
-                            götürür — önce objective’leri kaldır.
+                            <strong>{t('cannotDelete')}</strong>{' '}
+                            {fill(t('deptDeleteBlocked'), {
+                              objectives: formatCount(impact.data.objectives, 'objective', lang),
+                              krs: formatCount(impact.data.keyResults, 'key result', lang),
+                              checkins: formatCount(impact.data.checkins, 'check-in', lang),
+                            })}
                           </p>
                         ) : (
                           <p className={styles.confirmText}>
-                            <strong>{impact.data.nameTr}</strong> silinecek.
+                            <strong>{impact.data.nameTr}</strong> {t('willBeDeleted')}
                             {impact.data.users > 0
-                              ? ` ${impact.data.users} kişinin bölümü boşaltılacak (kişiler silinmez).`
-                              : ' Bağlı kişi veya objective yok.'}
+                              ? ` ${fill(t('deptDeleteUsers'), { n: impact.data.users })}`
+                              : ` ${t('deptDeleteNoLinks')}`}
                           </p>
                         )}
                         <div className={styles.confirmActions}>
@@ -303,7 +307,7 @@ export function DepartmentsTable({
                               type="button" className={styles.dangerBtn}
                               onClick={() => confirmDelete(d.id)} disabled={pending}
                             >
-                              Evet, sil
+                              {t('confirmDelete')}
                             </button>
                           ) : null}
                         </div>
