@@ -227,7 +227,7 @@ export function Wizard({
                 />
               </div>
 
-              <div className={styles.row}>
+              <div className={styles.krRow}>
                 <div>
                   <label className={styles.label}>{t('thStart')}</label>
                   <input
