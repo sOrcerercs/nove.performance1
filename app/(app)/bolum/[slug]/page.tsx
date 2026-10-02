@@ -5,7 +5,6 @@ import { asOfCutoff, todayInIstanbul } from '@/lib/domain/dates'
 import { getDb } from '@/lib/db'
 import { getDepartmentForPage } from '@/lib/queries/department'
 import { resolveRange } from '@/lib/queries/range'
-import styles from './page.module.css'
 
 export default async function DepartmentPage({
   params,
@@ -29,13 +28,11 @@ export default async function DepartmentPage({
   if (result.kind === 'not-found') notFound()
 
   return (
-    <div key={slug} className={styles.slideIn}>
-      <DepartmentScreen
-        dept={result.dept}
-        selection={selection}
-        asOf={asOf}
-        today={todayInIstanbul(now)}
-      />
-    </div>
+    <DepartmentScreen
+      dept={result.dept}
+      selection={selection}
+      asOf={asOf}
+      today={todayInIstanbul(now)}
+    />
   )
 }
