@@ -12,6 +12,7 @@ import { allPeriods } from '@/lib/queries/tables'
 import type { Role } from '@/lib/domain/types'
 import { submitCheckinFor } from '../core/checkins'
 import { setMonthlyValueAs } from '../core/monthly'
+import { M1, M2 } from './open-months'
 import {
   createObjectiveFor,
   deleteObjectiveFor,
@@ -188,8 +189,8 @@ test('editing a key result changes its measured values', async () => {
 test('changing the rollup rule recomputes current, without touching the monthly rows', async () => {
   const db = await seeded()
   // k-msf-yorum is a `sum` rule: two months on file sum to 90.
-  await setMonthlyValueAs(db, actor('admin', null), { krId: 'k-msf-yorum', month: '2025-09', value: 30 })
-  await setMonthlyValueAs(db, actor('admin', null), { krId: 'k-msf-yorum', month: '2025-10', value: 60 })
+  await setMonthlyValueAs(db, actor('admin', null), { krId: 'k-msf-yorum', month: M1, value: 30 })
+  await setMonthlyValueAs(db, actor('admin', null), { krId: 'k-msf-yorum', month: M2, value: 60 })
 
   const [before] = await db.select().from(krTable).where(eq(krTable.id, 'k-msf-yorum'))
   expect(before?.current).toBe(90)
@@ -220,8 +221,8 @@ test('changing the rollup rule recomputes current, without touching the monthly 
 
 test('editing a key result without changing its rollup rule leaves current alone', async () => {
   const db = await seeded()
-  await setMonthlyValueAs(db, actor('admin', null), { krId: 'k-msf-yorum', month: '2025-09', value: 30 })
-  await setMonthlyValueAs(db, actor('admin', null), { krId: 'k-msf-yorum', month: '2025-10', value: 60 })
+  await setMonthlyValueAs(db, actor('admin', null), { krId: 'k-msf-yorum', month: M1, value: 30 })
+  await setMonthlyValueAs(db, actor('admin', null), { krId: 'k-msf-yorum', month: M2, value: 60 })
 
   const existing = await krsOf(db, SAHA_OBJ)
   const res = await updateObjectiveFor(db, actor('admin', null), {

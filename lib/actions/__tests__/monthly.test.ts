@@ -6,6 +6,7 @@ import { keyResults, krMonthlyValues } from '@/lib/db/schema'
 import { seed } from '@/lib/db/seed'
 import { setMonthlyValueAs, setMonthlyValuesAs } from '../core/monthly'
 import { FORBIDDEN } from '../types'
+import { M1, M2, OUTSIDE } from './open-months'
 
 /**
  * `can()` is mocked here, but only ever as a pass-through by default: every
@@ -58,7 +59,7 @@ const executive: SessionUser = {
 
 test('writing a month stores the value and recomputes the summary', async () => {
   const db = await seeded()
-  const r = await setMonthlyValueAs(db, admin, { krId: 'k-sat-italya', month: '2025-09', value: 40 })
+  const r = await setMonthlyValueAs(db, admin, { krId: 'k-sat-italya', month: M1, value: 40 })
   expect(r.ok).toBe(true)
 
   const rows = await db.select().from(krMonthlyValues).where(eq(krMonthlyValues.keyResultId, 'k-sat-italya'))
@@ -72,8 +73,8 @@ test('writing a month stores the value and recomputes the summary', async () => 
 
 test('writing the same month again updates it rather than adding a row', async () => {
   const db = await seeded()
-  await setMonthlyValueAs(db, admin, { krId: 'k-sat-italya', month: '2025-09', value: 40 })
-  await setMonthlyValueAs(db, admin, { krId: 'k-sat-italya', month: '2025-09', value: 55 })
+  await setMonthlyValueAs(db, admin, { krId: 'k-sat-italya', month: M1, value: 40 })
+  await setMonthlyValueAs(db, admin, { krId: 'k-sat-italya', month: M1, value: 55 })
 
   const rows = await db.select().from(krMonthlyValues).where(eq(krMonthlyValues.keyResultId, 'k-sat-italya'))
   expect(rows).toHaveLength(1)
@@ -82,8 +83,8 @@ test('writing the same month again updates it rather than adding a row', async (
 
 test('sum accumulates across months', async () => {
   const db = await seeded()
-  await setMonthlyValueAs(db, admin, { krId: 'k-sat-italya', month: '2025-09', value: 40 })
-  await setMonthlyValueAs(db, admin, { krId: 'k-sat-italya', month: '2025-10', value: 60 })
+  await setMonthlyValueAs(db, admin, { krId: 'k-sat-italya', month: M1, value: 40 })
+  await setMonthlyValueAs(db, admin, { krId: 'k-sat-italya', month: M2, value: 60 })
 
   const [kr] = await db.select().from(keyResults).where(eq(keyResults.id, 'k-sat-italya'))
   expect(kr!.current).toBe(100)
@@ -92,8 +93,8 @@ test('sum accumulates across months', async () => {
 test('avg averages the filled months, not the calendar', async () => {
   const db = await seeded()
   // k-skl-skor is an `avg` rule.
-  await setMonthlyValueAs(db, admin, { krId: 'k-skl-skor', month: '2025-09', value: 99 })
-  await setMonthlyValueAs(db, admin, { krId: 'k-skl-skor', month: '2025-10', value: 99.4 })
+  await setMonthlyValueAs(db, admin, { krId: 'k-skl-skor', month: M1, value: 99 })
+  await setMonthlyValueAs(db, admin, { krId: 'k-skl-skor', month: M2, value: 99.4 })
 
   const [kr] = await db.select().from(keyResults).where(eq(keyResults.id, 'k-skl-skor'))
   expect(kr!.current).toBeCloseTo(99.2, 5)
@@ -125,8 +126,8 @@ test('last picks the chronologically latest month, regardless of write order', a
   await forceSeqScan(db)
   // k-fin-tedarikci is a `last` rule. October is written first, September
   // second — the write order is deliberately reversed from calendar order.
-  await setMonthlyValueAs(db, admin, { krId: 'k-fin-tedarikci', month: '2025-10', value: 90 })
-  await setMonthlyValueAs(db, admin, { krId: 'k-fin-tedarikci', month: '2025-09', value: 80 })
+  await setMonthlyValueAs(db, admin, { krId: 'k-fin-tedarikci', month: M2, value: 90 })
+  await setMonthlyValueAs(db, admin, { krId: 'k-fin-tedarikci', month: M1, value: 80 })
 
   const [kr] = await db.select().from(keyResults).where(eq(keyResults.id, 'k-fin-tedarikci'))
   // October is chronologically later, so it must still win — not 80, the
@@ -142,9 +143,9 @@ test('correcting an earlier month does not revert `last` to that month\'s value'
   // reproduced the bug. Then September is corrected, which is what moves
   // its row to the end of the heap on a real Postgres table (confirmed via
   // `ctid` while investigating this fix).
-  await setMonthlyValueAs(db, admin, { krId: 'k-fin-tedarikci', month: '2025-09', value: 80 })
-  await setMonthlyValueAs(db, admin, { krId: 'k-fin-tedarikci', month: '2025-10', value: 90 })
-  await setMonthlyValueAs(db, admin, { krId: 'k-fin-tedarikci', month: '2025-09', value: 85 })
+  await setMonthlyValueAs(db, admin, { krId: 'k-fin-tedarikci', month: M1, value: 80 })
+  await setMonthlyValueAs(db, admin, { krId: 'k-fin-tedarikci', month: M2, value: 90 })
+  await setMonthlyValueAs(db, admin, { krId: 'k-fin-tedarikci', month: M1, value: 85 })
 
   const [kr] = await db.select().from(keyResults).where(eq(keyResults.id, 'k-fin-tedarikci'))
   // October is still the chronologically latest month on file — correcting
@@ -154,8 +155,10 @@ test('correcting an earlier month does not revert `last` to that month\'s value'
 
 test('a month outside the key result period is refused', async () => {
   const db = await seeded()
-  const r = await setMonthlyValueAs(db, admin, { krId: 'k-sat-italya', month: '2030-01', value: 1 })
+  const r = await setMonthlyValueAs(db, admin, { krId: 'k-sat-italya', month: OUTSIDE, value: 1 })
   expect(r.ok).toBe(false)
+  // Refused for the period, not for some unrelated reason.
+  if (!r.ok) expect(r.error.en).toBe("This month is not within the key result's period.")
 })
 
 test('a malformed month is refused', async () => {
@@ -167,7 +170,7 @@ test('a malformed month is refused', async () => {
 
 test('someone without check-in permission cannot write', async () => {
   const db = await seeded()
-  const r = await setMonthlyValueAs(db, executive, { krId: 'k-sat-italya', month: '2025-09', value: 40 })
+  const r = await setMonthlyValueAs(db, executive, { krId: 'k-sat-italya', month: M1, value: 40 })
   expect(r).toEqual({ ok: false, error: FORBIDDEN })
   if (!r.ok) expect(r.error.tr).toBe('Bu işlem için yetkiniz yok.')
 })
@@ -236,10 +239,10 @@ test('a clean batch writes every row, each summary reflecting its own rollup rul
   // swapped rule would visibly change the result: sum → 100 vs avg → 50 for
   // the first, avg → 99.2 vs sum → 198.4 for the second.
   const result = await setMonthlyValuesAs(db, admin, [
-    { krId: 'k-sat-italya', month: '2025-09', value: 40 },
-    { krId: 'k-sat-italya', month: '2025-10', value: 60 },
-    { krId: 'k-skl-skor', month: '2025-09', value: 99 },
-    { krId: 'k-skl-skor', month: '2025-10', value: 99.4 },
+    { krId: 'k-sat-italya', month: M1, value: 40 },
+    { krId: 'k-sat-italya', month: M2, value: 60 },
+    { krId: 'k-skl-skor', month: M1, value: 99 },
+    { krId: 'k-skl-skor', month: M2, value: 99.4 },
   ])
 
   expect(result.ok).toBe(true)
@@ -277,8 +280,8 @@ test('a mixed-permission batch refuses only what it must', async () => {
 
   // k-sat-italya → 'satis' (permitted). k-fin-taksit → 'finans' (refused).
   const result = await setMonthlyValuesAs(db, mixedActor, [
-    { krId: 'k-sat-italya', month: '2025-09', value: 40 },
-    { krId: 'k-fin-taksit', month: '2025-09', value: 5000 },
+    { krId: 'k-sat-italya', month: M1, value: 40 },
+    { krId: 'k-fin-taksit', month: M1, value: 5000 },
   ])
 
   expect(result.ok).toBe(true)
@@ -287,7 +290,7 @@ test('a mixed-permission batch refuses only what it must', async () => {
   const permitted = result.data.find((r) => r.krId === 'k-sat-italya')
   const refused = result.data.find((r) => r.krId === 'k-fin-taksit')
   expect(permitted?.ok).toBe(true)
-  expect(refused).toEqual({ krId: 'k-fin-taksit', month: '2025-09', ok: false, error: FORBIDDEN })
+  expect(refused).toEqual({ krId: 'k-fin-taksit', month: M1, ok: false, error: FORBIDDEN })
 
   // The load-bearing assertion: the permitted row landed, the refused row did
   // not — a batch that wrote everything, or refused everything, fails this.
@@ -301,8 +304,8 @@ test('a batch from an actor with no permission at all writes nothing', async () 
   const db = await seeded()
 
   const result = await setMonthlyValuesAs(db, executive, [
-    { krId: 'k-sat-italya', month: '2025-09', value: 40 },
-    { krId: 'k-skl-skor', month: '2025-09', value: 99 },
+    { krId: 'k-sat-italya', month: M1, value: 40 },
+    { krId: 'k-skl-skor', month: M1, value: 99 },
   ])
 
   expect(result.ok).toBe(true)
@@ -319,10 +322,10 @@ test('an invalid item does not poison the valid ones in the same batch', async (
   const db = await seeded()
 
   const result = await setMonthlyValuesAs(db, admin, [
-    { krId: 'k-sat-italya', month: '2025-09', value: 40 },
+    { krId: 'k-sat-italya', month: M1, value: 40 },
     // Outside k-skl-skor's period — refused by setMonthlyValueAs itself, not
     // a permission failure.
-    { krId: 'k-skl-skor', month: '2030-01', value: 999 },
+    { krId: 'k-skl-skor', month: OUTSIDE, value: 999 },
   ])
 
   expect(result.ok).toBe(true)
