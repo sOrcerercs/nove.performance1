@@ -2,7 +2,10 @@
 
 import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
+import type { Lang } from '@/lib/domain/types'
+import { usePrefs } from '@/lib/prefs/PrefsProvider'
 import { signInWithPassword, type SignInResult } from './actions'
+import { COPY, failureMessage, fieldMessage, type SignInFailure } from './login-copy'
 import {
   firstNameOf,
   nextProgress,
@@ -125,6 +128,62 @@ function Title({
   )
 }
 
+/**
+ * TR | EN slide switch. Two radios rather than one on/off switch, because
+ * neither language is "off". Writes the shared app preference, so the choice
+ * made here carries into the app after sign-in.
+ */
+function LanguageSwitch({ lang, onChange, label }: { lang: Lang; onChange: (l: Lang) => void; label: string }) {
+  const options: { value: Lang; text: string; name: string }[] = [
+    { value: 'tr', text: 'TR', name: 'Türkçe' },
+    { value: 'en', text: 'EN', name: 'English' },
+  ]
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
+      e.preventDefault()
+      const next: Lang = lang === 'tr' ? 'en' : 'tr'
+      onChange(next)
+      ;(e.currentTarget.querySelector(`[data-lang="${next}"]`) as HTMLElement | null)?.focus()
+    }
+  }
+  return (
+    <div
+      className={`${styles.langSwitch} ${lang === 'en' ? styles.langEn : ''}`}
+      role="radiogroup"
+      aria-label={label}
+      onKeyDown={onKeyDown}
+    >
+      <span className={styles.langKnob} aria-hidden="true" />
+      {options.map((o) => (
+        <button
+          key={o.value}
+          type="button"
+          role="radio"
+          data-lang={o.value}
+          aria-checked={lang === o.value}
+          aria-label={o.name}
+          tabIndex={lang === o.value ? 0 : -1}
+          className={styles.langOption}
+          onClick={() => onChange(o.value)}
+        >
+          {o.text}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+/** Renders `code` spans for text wrapped in backticks. */
+function withCode(text: string) {
+  return text.split('`').map((part, i) => (i % 2 ? <code key={i}>{part}</code> : part))
+}
+
+interface Failure {
+  code: SignInFailure
+  remaining?: number
+  retryAfterMinutes?: number
+}
+
 export function LoginExperience({
   showSeedHint,
   welcomeName,
@@ -135,19 +194,21 @@ export function LoginExperience({
   welcomeName?: string
 }) {
   const router = useRouter()
+  const { lang, setLang } = usePrefs()
+  const c = COPY[lang]
   const startsWelcome = welcomeName !== undefined
 
   const [phase, setPhase] = useState<Phase>(startsWelcome ? 'welcome' : 'login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [fieldErrors, setFieldErrors] = useState<CredentialErrors>({})
-  const [error, setError] = useState<string | null>(null)
+  const [failure, setFailure] = useState<Failure | null>(null)
   const [name, setName] = useState(welcomeName ?? '')
   const [loginRun, setLoginRun] = useState(0)
   const [fillOn, setFillOn] = useState(false)
   const [fillHandoff, setFillHandoff] = useState(false)
   const [dot, setDot] = useState<'empty' | 'ink' | 'lit'>('empty')
-  const [progressLabel, setProgressLabel] = useState('Giriş yapılıyor')
+  const [progressLabel, setProgressLabel] = useState<'submitting' | 'welcome'>('submitting')
 
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const loginTwin = useRef<HTMLDivElement>(null)
@@ -294,7 +355,7 @@ export function LoginExperience({
         requestAnimationFrame(step)
         return
       }
-      setProgressLabel('Hoş geldin')
+      setProgressLabel('welcome')
       setDot('ink')
       later(() => setDot('lit'), 260)
       later(enterWelcome, 620)
@@ -306,7 +367,7 @@ export function LoginExperience({
     serverDone.current = false
     aborted.current = false
     setDot('empty')
-    setProgressLabel('Giriş yapılıyor')
+    setProgressLabel('submitting')
     setFillHandoff(false)
     if (inkRef.current) inkRef.current.style.clipPath = 'inset(100% 0 0 0)'
     if (pctRef.current) pctRef.current.textContent = '00'
@@ -331,12 +392,12 @@ export function LoginExperience({
     later(runFill, 450)
   }
 
-  function abortSigning(message: string) {
+  function abortSigning(f: Failure) {
     aborted.current = true
     timers.current.forEach(clearTimeout)
     timers.current = []
     setFillOn(false)
-    setError(message)
+    setFailure(f)
     setPhase('login')
     setLoginRun((n) => n + 1)
     stop.current = 'login'
@@ -358,10 +419,10 @@ export function LoginExperience({
       ;(errors.email ? emailRef : passwordRef).current?.focus()
       return
     }
-    setError(null)
+    setFailure(null)
     startSigning()
 
-    let result: SignInResult
+    let result: SignInResult | (Failure & { ok: false; name: '' })
     try {
       // The action can stall when the database connection hangs server-side;
       // racing a timeout guarantees the fill never waits forever.
@@ -370,15 +431,15 @@ export function LoginExperience({
         new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), TIMEOUT_MS)),
       ])
     } catch {
-      result = {
-        ok: false,
-        error: 'Sunucuya ulaşılamadı veya yanıt gecikti. Lütfen tekrar deneyin.',
-        name: '',
-      }
+      result = { ok: false, code: 'unreachable', name: '' }
     }
 
     if (!result.ok) {
-      abortSigning(result.error)
+      abortSigning({
+        code: result.code as SignInFailure,
+        remaining: result.remaining,
+        retryAfterMinutes: result.retryAfterMinutes,
+      })
       return
     }
     // The welcome screen can stay open for a while; do not keep the password
@@ -467,34 +528,39 @@ export function LoginExperience({
   const first = firstNameOf(name)
   const welcomeLines: Line[] = first
     ? [
-        { text: 'Hoş geldin,', className: styles.w1 },
+        { text: `${c.welcome},`, className: styles.w1 },
         { text: `${first}.`, className: styles.w2 },
       ]
-    : [{ text: 'Hoş geldin.', className: styles.w1 }]
+    : [{ text: `${c.welcome}.`, className: styles.w1 }]
 
   const inLogin = phase === 'login' || phase === 'signing'
 
   return (
-    <div className={styles.root}>
+    // `lang` on the root matters: Turkish case rules would uppercase the
+    // English "i" in SIGN IN as "İ".
+    <div className={styles.root} lang={lang}>
       <canvas ref={canvasRef} className={styles.sky} aria-hidden="true" />
 
       {inLogin ? (
-        <section className={styles.screen} aria-label="Giriş">
+        <section className={styles.screen} aria-label={c.signInRegion}>
           <span className={styles.wordmark}>Nove PYS.</span>
+          <div className={styles.corner}>
+            <LanguageSwitch lang={lang} onChange={setLang} label={c.language} />
+          </div>
           <Title
-            key={loginRun}
-            label="Büyük hedefler, küçük adımlarla büyür."
+            key={`${loginRun}-${lang}`}
+            label={c.headlineLabel}
             lines={[
-              { text: 'Büyük hedefler,', className: styles.w1 },
-              { text: 'küçük adımlarla', className: styles.w2 },
-              { text: 'büyür.', className: styles.w3 },
+              { text: c.headline[0], className: styles.w1 },
+              { text: c.headline[1], className: styles.w2 },
+              { text: c.headline[2], className: styles.w3 },
             ]}
             dispersed={phase === 'signing'}
             twinRef={loginTwin}
           />
           <div className={styles.meta}>
-            <span className={styles.label}>Nove Group</span>
-            <span className={`${styles.label} ${styles.muted}`}>Performans Yönetim Sistemi</span>
+            <span className={styles.label}>{c.group}</span>
+            <span className={`${styles.label} ${styles.muted}`}>{c.system}</span>
           </div>
 
           <form
@@ -503,14 +569,14 @@ export function LoginExperience({
             noValidate
           >
             <div className={styles.field}>
-              <label className={styles.label} htmlFor="email">E-posta</label>
+              <label className={styles.label} htmlFor="email">{c.email}</label>
               <input
                 ref={emailRef}
                 id="email"
                 className={styles.input}
                 type="email"
                 autoComplete="username"
-                placeholder="ad.soyad@nove.group"
+                placeholder={c.emailPlaceholder}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 aria-invalid={fieldErrors.email ? true : undefined}
@@ -518,12 +584,14 @@ export function LoginExperience({
                 disabled={phase !== 'login'}
               />
               {fieldErrors.email ? (
-                <span id="email-error" className={styles.fieldError}>{fieldErrors.email}</span>
+                <span id="email-error" className={styles.fieldError}>
+                  {fieldMessage('email', fieldErrors.email, lang)}
+                </span>
               ) : null}
             </div>
 
             <div className={styles.field}>
-              <label className={styles.label} htmlFor="password">Parola</label>
+              <label className={styles.label} htmlFor="password">{c.password}</label>
               <input
                 ref={passwordRef}
                 id="password"
@@ -537,42 +605,43 @@ export function LoginExperience({
                 disabled={phase !== 'login'}
               />
               {fieldErrors.password ? (
-                <span id="password-error" className={styles.fieldError}>{fieldErrors.password}</span>
+                <span id="password-error" className={styles.fieldError}>
+                  {fieldMessage('password', fieldErrors.password, lang)}
+                </span>
               ) : null}
             </div>
 
-            {error ? <p className={styles.error} role="alert">{error}</p> : null}
+            {failure ? (
+              <p className={styles.error} role="alert">
+                {failureMessage(failure.code, lang, failure)}
+              </p>
+            ) : null}
 
             <button className={styles.submit} type="submit" disabled={phase !== 'login'}>
-              <span>{phase === 'login' ? 'Giriş yap' : 'Giriş yapılıyor'}</span>
+              <span>{phase === 'login' ? c.submit : c.submitting}</span>
               <span aria-hidden="true">→</span>
             </button>
 
             {showSeedHint ? (
-              <p className={styles.hint}>
-                Tohum hesapların parolası <code>npm run seed</code> çıktısında bir kez
-                gösterilir. Kaybettiyseniz <code>npm run set-password</code> ile yenisini
-                belirleyin. Bu kutu yalnızca geliştirme ortamında görünür.
-              </p>
+              <p className={styles.hint}>{withCode(c.seedHint)}</p>
             ) : null}
           </form>
         </section>
       ) : (
-        <section className={styles.screen} aria-label="Hoş geldin">
+        <section className={styles.screen} aria-label={c.welcomeRegion}>
           <span className={styles.wordmark}>Nove PYS.</span>
           {name ? <span className={`${styles.label} ${styles.corner}`}>{name}</span> : null}
           <Title
-            label={first ? `Hoş geldin, ${first}.` : 'Hoş geldin.'}
+            key={lang}
+            label={first ? `${c.welcome}, ${first}.` : `${c.welcome}.`}
             lines={welcomeLines}
             dispersed={phase === 'leaving'}
             twinRef={welcomeTwin}
             delay={250}
           />
           <div className={styles.meta}>
-            <span className={styles.label}>Anasayfa</span>
-            <span className={`${styles.label} ${styles.muted}`}>
-              Devam etmek için aşağı kaydırın
-            </span>
+            <span className={styles.label}>{c.home}</span>
+            <span className={`${styles.label} ${styles.muted}`}>{c.scrollHint}</span>
           </div>
           <button
             type="button"
@@ -580,7 +649,7 @@ export function LoginExperience({
             onClick={leave}
             disabled={phase === 'leaving'}
           >
-            Kaydır ↓
+            {c.scroll}
           </button>
         </section>
       )}
@@ -599,10 +668,10 @@ export function LoginExperience({
           />
         </div>
         <span className={styles.srOnly} role="status">
-          {phase === 'signing' ? 'Giriş yapılıyor' : ''}
+          {phase === 'signing' ? c.submitting : ''}
         </span>
         <div className={`${styles.label} ${styles.progress}`} aria-hidden="true">
-          <span>{fillOn ? progressLabel : ''}</span>
+          <span>{fillOn ? c[progressLabel] : ''}</span>
           <span ref={pctRef} className={styles.muted}>00</span>
         </div>
       </div>

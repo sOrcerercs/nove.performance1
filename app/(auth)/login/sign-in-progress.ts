@@ -22,9 +22,10 @@ export function nextProgress(
   return Math.max(prev, waiting)
 }
 
+/** Codes, not sentences; `login-copy.ts` words them in the chosen language. */
 export interface CredentialErrors {
-  email?: string
-  password?: string
+  email?: 'missing' | 'format'
+  password?: 'missing'
 }
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -33,10 +34,9 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 export function validateCredentials(email: string, password: string): CredentialErrors {
   const errors: CredentialErrors = {}
   const trimmed = email.trim()
-  if (!trimmed) errors.email = 'E-posta adresinizi yazın.'
-  else if (!EMAIL.test(trimmed))
-    errors.email = 'Bu bir e-posta adresi gibi görünmüyor. Örnek: ad.soyad@nove.group'
-  if (!password) errors.password = 'Parolanızı yazın.'
+  if (!trimmed) errors.email = 'missing'
+  else if (!EMAIL.test(trimmed)) errors.email = 'format'
+  if (!password) errors.password = 'missing'
   return errors
 }
 

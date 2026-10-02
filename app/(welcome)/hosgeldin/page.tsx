@@ -1,5 +1,6 @@
 import { LoginExperience } from '@/app/(auth)/login/login-experience'
 import { requireUser } from '@/lib/auth/session'
+import { PrefsProvider } from '@/lib/prefs/PrefsProvider'
 
 /**
  * The welcome screen on its own, for a user who is already signed in — the
@@ -8,5 +9,9 @@ import { requireUser } from '@/lib/auth/session'
  */
 export default async function WelcomePage() {
   const user = await requireUser()
-  return <LoginExperience showSeedHint={false} welcomeName={user.name} />
+  return (
+    <PrefsProvider>
+      <LoginExperience showSeedHint={false} welcomeName={user.name} />
+    </PrefsProvider>
+  )
 }

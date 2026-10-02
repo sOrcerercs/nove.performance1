@@ -29,14 +29,11 @@ describe('nextProgress', () => {
 
 describe('validateCredentials', () => {
   test('asks for both fields when empty', () => {
-    expect(validateCredentials('', '')).toEqual({
-      email: 'E-posta adresinizi yazın.',
-      password: 'Parolanızı yazın.',
-    })
+    expect(validateCredentials('', '')).toEqual({ email: 'missing', password: 'missing' })
   })
 
   test('rejects something that is not an e-mail address', () => {
-    expect(validateCredentials('kagan', 'x').email).toMatch(/e-posta adresi gibi görünmüyor/)
+    expect(validateCredentials('kagan', 'x').email).toBe('format')
   })
 
   test('accepts a plausible address and any non-empty password', () => {

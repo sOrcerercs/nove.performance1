@@ -7,9 +7,17 @@ import { getThrottleState } from '@/lib/auth/throttle'
 import { getDb } from '@/lib/db'
 import { users } from '@/lib/db/schema'
 
+/**
+ * A code, not a sentence: the sign-in screen is bilingual and writes the
+ * message in the language the user picked (`login-copy.ts`).
+ */
 export interface SignInResult {
   ok: boolean
-  error: string
+  code: 'ok' | 'invalid' | 'locked'
+  /** Attempts left before a lockout; only sent when two or fewer remain. */
+  remaining?: number
+  /** Minutes until a locked address may try again. */
+  retryAfterMinutes?: number
   /** The signed-in user's full name, for the welcome screen. Empty on failure. */
   name: string
 }
@@ -29,7 +37,7 @@ export async function signInWithPassword(input: {
       password: input.password,
       redirect: false,
     })
-    return { ok: true, error: '', name: await nameOf(input.email) }
+    return { ok: true, code: 'ok', name: await nameOf(input.email) }
   } catch (err) {
     if (!(err instanceof AuthError)) throw err
 
@@ -43,21 +51,19 @@ export async function signInWithPassword(input: {
       const state = await getThrottleState(db, input.email)
 
       if (state.locked) {
-        return {
-          ok: false,
-          error: `Çok fazla başarısız deneme. ${state.retryAfterMinutes} dakika sonra tekrar dene.`,
-          name: '',
-        }
+        return { ok: false, code: 'locked', retryAfterMinutes: state.retryAfterMinutes, name: '' }
       }
 
       // Deliberately vague otherwise: distinguishing "no such user" from "wrong
       // password" would let anyone enumerate valid company addresses.
-      const suffix =
-        state.remaining <= 2 ? ` ${state.remaining} deneme hakkın kaldı.` : ''
-
-      return { ok: false, error: `E-posta veya parola hatalı.${suffix}`, name: '' }
+      return {
+        ok: false,
+        code: 'invalid',
+        ...(state.remaining <= 2 ? { remaining: state.remaining } : {}),
+        name: '',
+      }
     } catch {
-      return { ok: false, error: 'E-posta veya parola hatalı.', name: '' }
+      return { ok: false, code: 'invalid', name: '' }
     }
   }
 }
