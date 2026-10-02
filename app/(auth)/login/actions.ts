@@ -1,13 +1,17 @@
 'use server'
 
+import { eq } from 'drizzle-orm'
 import { AuthError } from 'next-auth'
 import { signIn } from '@/lib/auth/config'
 import { getThrottleState } from '@/lib/auth/throttle'
 import { getDb } from '@/lib/db'
+import { users } from '@/lib/db/schema'
 
 export interface SignInResult {
   ok: boolean
   error: string
+  /** The signed-in user's full name, for the welcome screen. Empty on failure. */
+  name: string
 }
 
 /**
@@ -25,7 +29,7 @@ export async function signInWithPassword(input: {
       password: input.password,
       redirect: false,
     })
-    return { ok: true, error: '' }
+    return { ok: true, error: '', name: await nameOf(input.email) }
   } catch (err) {
     if (!(err instanceof AuthError)) throw err
 
@@ -42,6 +46,7 @@ export async function signInWithPassword(input: {
         return {
           ok: false,
           error: `Çok fazla başarısız deneme. ${state.retryAfterMinutes} dakika sonra tekrar dene.`,
+          name: '',
         }
       }
 
@@ -50,9 +55,28 @@ export async function signInWithPassword(input: {
       const suffix =
         state.remaining <= 2 ? ` ${state.remaining} deneme hakkın kaldı.` : ''
 
-      return { ok: false, error: `E-posta veya parola hatalı.${suffix}` }
+      return { ok: false, error: `E-posta veya parola hatalı.${suffix}`, name: '' }
     } catch {
-      return { ok: false, error: 'E-posta veya parola hatalı.' }
+      return { ok: false, error: 'E-posta veya parola hatalı.', name: '' }
     }
+  }
+}
+
+/**
+ * The welcome screen greets the user by name. Read after a successful sign-in,
+ * with the same normalisation `authorize()` applies. Best-effort: a failed read
+ * must not turn a successful sign-in into an error, so it falls back to no name.
+ */
+async function nameOf(email: string): Promise<string> {
+  try {
+    const db = await getDb()
+    const [row] = await db
+      .select({ name: users.name })
+      .from(users)
+      .where(eq(users.email, email.toLowerCase().trim()))
+      .limit(1)
+    return row?.name ?? ''
+  } catch {
+    return ''
   }
 }

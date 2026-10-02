@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { Avatar } from '@/components/ui/Avatar'
@@ -68,9 +69,9 @@ export function Sidebar({
   return (
     <nav className={styles.sidebar} aria-label="Ana gezinme">
       <div className={styles.brand}>
-        <div className={styles.mark}>N</div>
+        <Image className={styles.mark} src="/nove-logo.png" alt="Nove" width={32} height={32} priority />
         <div>
-          <div className={styles.brandName}>Nove PYS</div>
+          <div className={styles.brandName}>Nove PYS.</div>
           <div className={styles.brandSub}>{t('brandSub')}</div>
         </div>
       </div>
@@ -83,6 +84,11 @@ export function Sidebar({
 
       <div className={styles.group}>
         <div className={styles.groupTitle}>{t('navGroupMain')}</div>
+        {/* The welcome screen is full-bleed and has no date range, so this is a
+            plain link rather than item(): no range to carry, never "active". */}
+        <Link href="/hosgeldin" className={styles.item}>
+          <span className={styles.itemLabel}>{t('navHome')}</span>
+        </Link>
         {item('/', t('overview'))}
         {item('/rapor', t('report'))}
         {canEnterMonthly ? item('/veri-girisi', t('navMonthlyEntry')) : null}
