@@ -1,11 +1,14 @@
 /* Nove PYS design tokens — copied verbatim from design.md §10.
+   Exception (2026-10-02): --bg and --font-sans already follow the sign-in /
+   welcome screens (parchment, Inter Tight); the rest of the palette is still
+   the original blue system until the full "Parşömen" switch.
    Do not re-derive or rename these values; the design system is the source of truth. */
 :root {
   --blue-50:#EBF2FE; --blue-100:#D6E4FE; --blue-200:#AECAFD; --blue-300:#7BA6FB;
   --blue-400:#3E82F7; --blue-500:#0462F2; --blue-600:#0353D8; --blue-700:#0341A8;
   --blue-800:#002A78; --blue-900:#001C52; --blue-950:#00061A;
   --sky-400:#39B4F8; --sky-500:#069BF6;
-  --bg:#F7F9FC; --surface:#FFFFFF; --surface-alt:#F1F5F9;
+  --bg:#e5e4e0; --surface:#FFFFFF; --surface-alt:#F1F5F9;
   --border:#E2E8F0; --border-strong:#CBD5E1;
   --text-muted:#64748B; --text-secondary:#475569; --text:#1E293B; --ink:#0F172A;
   --success-fg:#0B7350; --success-bg:#E7F6EF;
@@ -19,7 +22,7 @@
   --shadow-lg:0 12px 28px rgba(15,23,42,.12);
   --shadow-focus:0 0 0 3px rgba(4,98,242,.30);
   --ease:cubic-bezier(.2,.8,.2,1); --dur-fast:120ms; --dur-base:200ms; --dur-slow:320ms;
-  --font-sans:"Inter",-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+  --font-sans:var(--font-tight),"Helvetica Neue",-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
 }
 
 /* Tokens documented in design.md but not listed in §10's block. */

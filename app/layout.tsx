@@ -12,11 +12,11 @@ const inter = Inter({
   variable: '--font-inter',
 })
 
-// The "Parşömen" face (design.md §5): the sign-in and welcome screens and the
-// sidebar wordmark. The rest of the app moves to it with the token switch.
+// The "Parşömen" face (design.md §5), now the whole app's face via
+// --font-sans. 600/700 because the app's headings and figures use them.
 const interTight = Inter_Tight({
   subsets: ['latin', 'latin-ext'],
-  weight: ['400', '500'],
+  weight: ['400', '500', '600', '700'],
   display: 'swap',
   variable: '--font-tight',
 })
