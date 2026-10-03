@@ -32,7 +32,8 @@ interface KrDraft {
   target: string
   unit: string
   confidence: Confidence
-  rollup: RollupRule
+  /** Empty only on a row added in this form: there is no default rule. */
+  rollup: RollupRule | ''
   ownerUserId: string
 }
 
@@ -107,7 +108,7 @@ export function ObjectiveEditor({
     setKrs((prev) => prev.map((k, j) => (j === i ? { ...k, ...patch } : k)))
 
   const valid = title.trim().length > 0 && krs.length > 0 &&
-    krs.every((k) => k.title.trim().length >= 3)
+    krs.every((k) => k.title.trim().length >= 3 && k.rollup !== '')
 
   async function onSave() {
     setPending(true)
@@ -124,7 +125,7 @@ export function ObjectiveEditor({
         target: Number(k.target),
         unit: k.unit,
         confidence: k.confidence,
-        rollup: k.rollup,
+        rollup: k.rollup as RollupRule, // guaranteed by `valid`
         ownerUserId: k.ownerUserId || null,
       })),
     })
@@ -304,10 +305,12 @@ export function ObjectiveEditor({
             <div>
               <label className={styles.label}>{t('fieldRollup')}</label>
               <select
-                className={styles.input} value={kr.rollup}
+                className={styles.input} value={kr.rollup} required
                 aria-label={`${t('fieldKr')} ${i + 1} ${t('fieldRollup')}`}
+                aria-invalid={kr.rollup === '' ? true : undefined}
                 onChange={(e) => editKr(i, { rollup: e.target.value as RollupRule })}
               >
+                {kr.rollup === '' ? <option value="" disabled>{t('chooseRule')}</option> : null}
                 {ROLLUPS.map((r) => (
                   <option key={r.key} value={r.key}>{t(r.label)}</option>
                 ))}
@@ -337,7 +340,7 @@ export function ObjectiveEditor({
             ...prev,
             {
               title: '', start: '0', currentDisplay: null, target: '100',
-              unit: '%', confidence: 'mid', rollup: 'last', ownerUserId: '',
+              unit: '%', confidence: 'mid', rollup: '', ownerUserId: '',
             },
           ])
         }

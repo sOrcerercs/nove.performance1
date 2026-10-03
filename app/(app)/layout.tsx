@@ -1,6 +1,7 @@
 import { headers } from 'next/headers'
 import { CheckinProvider } from '@/components/checkin/CheckinProvider'
 import { Sidebar } from '@/components/shell/Sidebar'
+import { Assemble } from '@/components/shell/Assemble'
 import { ToastProvider } from '@/components/ui/ToastProvider'
 import { can } from '@/lib/auth/permissions'
 import { requireUser } from '@/lib/auth/session'
@@ -61,7 +62,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               canManage={can(user, 'manage:users')}
               canEnterMonthly={can(user, 'checkin:kr')}
             />
-            <div className={styles.main}>{children}</div>
+            <Assemble className={styles.main}>{children}</Assemble>
           </div>
         </CheckinProvider>
       </ToastProvider>

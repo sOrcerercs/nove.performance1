@@ -35,6 +35,12 @@ export const krDraftSchema = z.object({
   current: z.number().finite().optional(),
   target: z.number().finite(),
   unit: z.string().max(8).default(''),
+  /**
+   * How monthly values become `current`. Required, with no default — the same
+   * rule as editing: a defaulted rule silently turned every new key result
+   * into `last`, so a cumulative target showed only its latest month.
+   */
+  rollup: z.enum(['sum', 'avg', 'last']),
   /** Who is responsible. Falls back to the objective owner when absent. */
   ownerUserId: z.string().min(1).nullable().default(null),
 })

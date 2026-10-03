@@ -53,6 +53,17 @@
 .row { display: flex; gap: 12px; }
 .row > * { flex: 1; }
 
+/* Key result row: four short number fields, then the two selects get the room
+   their labels need ("Kural seçin", an owner's name). */
+.krRow {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) minmax(0, 1.5fr) minmax(0, 1.7fr);
+  gap: 12px;
+}
+@media (max-width: 720px) {
+  .krRow { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
 .hint { margin-top: 6px; font-size: 12px; }
 .hintOk { color: var(--success-fg); }
 .hintWarn { color: var(--warning-fg); }
