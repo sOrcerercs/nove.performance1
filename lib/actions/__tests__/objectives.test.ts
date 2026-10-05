@@ -41,7 +41,7 @@ const validInput = (departmentId = 'satis') => ({
   departmentId,
   ownerUserId: null,
   periodCode: SEED_OBJECTIVE_PERIOD_CODE,
-  krs: [{ title: 'NPS skorunu 70e çıkar', start: 54, target: 70, unit: '' }],
+  krs: [{ title: 'NPS skorunu 70e çıkar', start: 54, target: 70, unit: '', rollup: 'last' as const }],
 })
 
 test('rejects an objective with no title', async () => {
@@ -61,7 +61,7 @@ test('rejects an objective with no key results', async () => {
 })
 
 test('rejects more than five key results', async () => {
-  const kr = { title: 'Ölçülebilir bir sonuç', start: 0, target: 10, unit: '' }
+  const kr = { title: 'Ölçülebilir bir sonuç', start: 0, target: 10, unit: '', rollup: 'last' as const }
   const res = await createObjectiveFor(await seeded(), actor('admin', null), {
     ...validInput(),
     krs: Array.from({ length: 6 }, () => kr),
@@ -72,7 +72,7 @@ test('rejects more than five key results', async () => {
 test('rejects a key result whose start equals its target', async () => {
   const res = await createObjectiveFor(await seeded(), actor('admin', null), {
     ...validInput(),
-    krs: [{ title: 'Hiç ilerlemeyecek bir KR', start: 50, target: 50, unit: '' }],
+    krs: [{ title: 'Hiç ilerlemeyecek bir KR', start: 50, target: 50, unit: '', rollup: 'last' as const }],
   })
   expect(res.ok).toBe(false)
   if (!res.ok) {
@@ -127,6 +127,36 @@ test('the objective code increments per department', async () => {
   if (!res.ok) return
   const [row] = await db.select().from(objectives).where(eq(objectives.id, res.data.id))
   expect(row?.code).toBe('O3')
+})
+
+// Regression: the wizard never sent a rollup rule, so every new key result
+// silently got the column default `last` — a cumulative target ("750 new
+// reviews") then showed only the latest month instead of the running total.
+test('a new key result keeps the rollup rule it was created with', async () => {
+  const db = await seeded()
+  const res = await createObjectiveFor(db, actor('admin', null), {
+    ...validInput('misafir'),
+    krs: [{ title: '750 yeni 5 yıldızlı yorum', start: 0, target: 750, unit: '', rollup: 'sum' }],
+  })
+  expect(res.ok).toBe(true)
+  if (!res.ok) return
+
+  const [kr] = await db.select().from(krTable).where(eq(krTable.objectiveId, res.data.id))
+  expect(kr?.rollup).toBe('sum')
+
+  await setMonthlyValueAs(db, actor('admin', null), { krId: kr!.id, month: M1, value: 110 })
+  await setMonthlyValueAs(db, actor('admin', null), { krId: kr!.id, month: M2, value: 75 })
+  const [after] = await db.select().from(krTable).where(eq(krTable.id, kr!.id))
+  expect(after?.current).toBe(185)
+})
+
+test('a key result without a rollup rule is refused — no silent default', async () => {
+  const res = await createObjectiveFor(await seeded(), actor('admin', null), {
+    ...validInput(),
+    // A caller that forgets the rule must fail loudly, as editing already does.
+    krs: [{ title: 'NPS skorunu 70e çıkar', start: 54, target: 70, unit: '' } as never],
+  })
+  expect(res.ok).toBe(false)
 })
 
 /* ---------------------------- edit and delete ---------------------------- */
@@ -254,7 +284,7 @@ test('a rule change on a back-filled key result with no monthly rows keeps its c
     departmentId: 'pazarlama',
     ownerUserId: null,
     periodCode: SEED_CLOSED_PERIOD_CODE,
-    krs: [{ title: 'Zaten ulaşılmış hedef', start: 0, current: 5000, target: 10000, unit: '' }],
+    krs: [{ title: 'Zaten ulaşılmış hedef', start: 0, current: 5000, target: 10000, unit: '', rollup: 'last' as const }],
   })
   expect(created.ok).toBe(true)
   if (!created.ok) return
@@ -294,7 +324,7 @@ test('editing `start` on a never-measured key result moves `current` with it', a
     departmentId: 'pazarlama',
     ownerUserId: null,
     periodCode: SEED_OBJECTIVE_PERIOD_CODE,
-    krs: [{ title: 'Ölçülmeyi bekleyen hedef', start: 0, target: 100, unit: '' }],
+    krs: [{ title: 'Ölçülmeyi bekleyen hedef', start: 0, target: 100, unit: '', rollup: 'last' as const }],
   })
   expect(created.ok).toBe(true)
   if (!created.ok) return
@@ -329,7 +359,7 @@ test('editing `start` on a back-filled key result leaves its current alone — t
     departmentId: 'pazarlama',
     ownerUserId: null,
     periodCode: SEED_CLOSED_PERIOD_CODE,
-    krs: [{ title: 'Zaten ulaşılmış başka bir hedef', start: 0, current: 5000, target: 10000, unit: '' }],
+    krs: [{ title: 'Zaten ulaşılmış başka bir hedef', start: 0, current: 5000, target: 10000, unit: '', rollup: 'last' as const }],
   })
   expect(created.ok).toBe(true)
   if (!created.ok) return
@@ -584,8 +614,8 @@ test('a created objective and its key results take the assigned owners', async (
     ownerUserId: 'u-kagan.ozturk',
     periodCode: SEED_OBJECTIVE_PERIOD_CODE,
     krs: [
-      { title: 'NPS skorunu 70e çıkar', start: 54, target: 70, unit: '', ownerUserId: 'u-oguzhan.kizilcan' },
-      { title: 'Şikayet süresini 24 saate indir', start: 72, target: 24, unit: 'saat', ownerUserId: null },
+      { title: 'NPS skorunu 70e çıkar', start: 54, target: 70, unit: '', ownerUserId: 'u-oguzhan.kizilcan', rollup: 'last' as const },
+      { title: 'Şikayet süresini 24 saate indir', start: 72, target: 24, unit: 'saat', ownerUserId: null, rollup: 'last' as const },
     ],
   })
   expect(res.ok).toBe(true)
@@ -663,7 +693,7 @@ test('a closed period still accepts objectives, so history can be entered', asyn
     departmentId: 'pazarlama',
     ownerUserId: 'u-oguzhan.kizilcan',
     periodCode: SEED_CLOSED_PERIOD_CODE,
-    krs: [{ title: 'Lead maliyetini 800e indir', start: 1000, current: 820, target: 800, unit: '₺' }],
+    krs: [{ title: 'Lead maliyetini 800e indir', start: 1000, current: 820, target: 800, unit: '₺', rollup: 'last' as const }],
   })
   expect(res.ok).toBe(true)
   if (!res.ok) return
@@ -680,8 +710,8 @@ test('a key result can be created with the figure already achieved', async () =>
     ownerUserId: null,
     periodCode: SEED_CLOSED_PERIOD_CODE,
     krs: [
-      { title: 'Hedefe ulaşan KR', start: 0, current: 100, target: 100, unit: '%' },
-      { title: 'Güncel verilmeyen KR', start: 10, target: 50, unit: '' },
+      { title: 'Hedefe ulaşan KR', start: 0, current: 100, target: 100, unit: '%', rollup: 'last' as const },
+      { title: 'Güncel verilmeyen KR', start: 10, target: 50, unit: '', rollup: 'last' as const },
     ],
   })
   expect(res.ok).toBe(true)
@@ -706,7 +736,7 @@ test('a past period reports its own progress, independent of the open quarter', 
     departmentId: 'pazarlama',
     ownerUserId: null,
     periodCode: SEED_CLOSED_PERIOD_CODE,
-    krs: [{ title: 'Tamamlanmış KR', start: 0, current: 100, target: 100, unit: '%' }],
+    krs: [{ title: 'Tamamlanmış KR', start: 0, current: 100, target: 100, unit: '%', rollup: 'last' as const }],
   })
 
   const q1 = await getDepartment(db, 'pazarlama', await idsOf(db, SEED_CLOSED_PERIOD_CODE))

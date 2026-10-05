@@ -18,7 +18,8 @@ export function Topbar({ overline, title, selection }: Props) {
   const checkin = useCheckin()
 
   return (
-    <header className={styles.topbar}>
+    // Part of the frame, not the page: it stays put while the page assembles.
+    <header className={styles.topbar} data-no-assemble>
       <div className={styles.crumbs}>
         <div className={styles.crumbOverline}>{overline}</div>
         <div className={styles.crumbTitle}>{title}</div>

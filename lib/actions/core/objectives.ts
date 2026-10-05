@@ -85,6 +85,7 @@ export async function createObjectiveFor(
         current: k.current ?? k.start,
         target: k.target,
         unit: k.unit ?? '',
+        rollup: k.rollup,
         confidence: 'mid' as const,
         // Per-key-result owner, falling back to the objective's owner.
         ownerUserId: k.ownerUserId ?? data.ownerUserId ?? user.id,
