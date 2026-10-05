@@ -340,11 +340,15 @@ export function Wizard({
               className={styles.secondary}
               disabled={filledKrs.length === 0}
               onClick={() => {
-                const shares = equalWeights(filledKrs.length)
-                let j = 0
-                setKrs((prev) =>
-                  prev.map((k) => (k.title.trim().length >= 3 ? { ...k, weight: String(shares[j++]) } : k)),
-                )
+                // The updater must be pure (StrictMode runs it twice): the share index is
+                // derived inside it, never carried in from outside.
+                setKrs((prev) => {
+                  const shares = equalWeights(prev.filter((k) => k.title.trim().length >= 3).length)
+                  let j = 0
+                  return prev.map((k) =>
+                    k.title.trim().length >= 3 ? { ...k, weight: String(shares[j++]) } : k,
+                  )
+                })
               }}
             >
               {t('weightEqual')}
@@ -365,7 +369,13 @@ export function Wizard({
             <span
               className={`${styles.validation} ${isValid ? styles.validationOk : styles.validationMissing}`}
             >
-              {isValid ? t('validationReady') : rulesMissing ? t('ruleMissing') : t('validationMissing')}
+              {isValid
+                ? t('validationReady')
+                : rulesMissing
+                  ? t('ruleMissing')
+                  : title.trim().length > 0 && filledKrs.length >= 1
+                    ? t('validationWeights')
+                    : t('validationMissing')}
             </span>
             <div className={styles.footerSpacer} />
             <button
