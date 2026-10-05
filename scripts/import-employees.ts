@@ -1,11 +1,13 @@
 /**
- * Loads the HR employee list and the organisation charts into users.
+ * Loads the HR staff list (İK çalışan listesi, xlsx, kept outside the repo) and the organisation charts into users.
  *
- *   npx tsx scripts/import-employees.ts "<tsv>" "<org json>"            # dry run (default)
- *   npx tsx scripts/import-employees.ts "<tsv>" "<org json>" --apply    # writes
+ *   npm run import-employees -- "<tsv>" "<org json>"            # dry run (default)
+ *   npm run import-employees -- "<tsv>" "<org json>" --apply    # writes
  *
- * Target: `DATABASE_URL` when set (live — only with the user's go-ahead),
- * otherwise the local PGlite in `.pglite` (rehearsal).
+ * The npm script loads `.env.local`, so it targets that DATABASE_URL (live —
+ * only with the user's go-ahead). The first line printed names the target host.
+ * Local rehearsal (PGlite in `.pglite`): from a checkout without `.env.local`, run
+ *   env -u DATABASE_URL npx tsx scripts/import-employees.ts "<tsv>" "<org json>"
  *
  * Dry run prints the plan and touches nothing. With any error, `--apply`
  * refuses to write anything. Adds and fills blanks only — never deletes, never
@@ -14,17 +16,22 @@
  */
 import { randomUUID } from 'node:crypto'
 import { readFileSync } from 'node:fs'
-import { eq, max } from 'drizzle-orm'
+import { and, eq, isNull, max } from 'drizzle-orm'
 import { getDb } from '../lib/db'
 import * as schema from '../lib/db/schema'
 import { normaliseName, parseTsv, planImport, type OrgData } from '../lib/import/employees'
 
 const [tsvPath, orgPath, flag] = process.argv.slice(2)
 if (!tsvPath || !orgPath) {
-  console.error('Kullanım: npx tsx scripts/import-employees.ts "<tsv>" "<org json>" [--apply]')
+  console.error('Kullanım: npm run import-employees -- "<tsv>" "<org json>" [--apply]')
   process.exit(1)
 }
-console.log(`Hedef: ${process.env.DATABASE_URL ? 'DATABASE_URL (canlı olabilir!)' : 'yerel PGlite (.pglite)'}`)
+const targetHost = (() => {
+  const url = process.env.DATABASE_URL
+  if (!url) return 'yerel PGlite (.pglite)'
+  try { return new URL(url).hostname } catch { return '(çözülemeyen DATABASE_URL)' }
+})()
+console.log(`Hedef: ${targetHost}`)
 
 const db = await getDb()
 const rows = parseTsv(readFileSync(tsvPath, 'utf8'))
@@ -52,6 +59,8 @@ console.log(`Benzer ad uyarısı (alias gerekebilir): ${plan.similarNames.length
 for (const s of plan.similarNames) console.log(`  ? "${s.listName}" ↔ mevcut "${s.existingName}"`)
 console.log(`Büyük harften çevrilen, I/ı kontrol edilmesi gereken ad: ${plan.uncertainCasing.length}`)
 for (const n of plan.uncertainCasing) console.log(`  ? ${n}`)
+console.log(`Eşleşen pasif kişi (kontrol edin): ${plan.passiveMatches.length}`)
+for (const n of plan.passiveMatches) console.log(`  ? ${n}`)
 console.log(`Listede olmayan mevcut kullanıcı (dokunulmaz): ${list(plan.untouched.map((u) => u.name))}`)
 if (plan.errors.length) {
   console.log(`\n${plan.errors.length} HATA — hiçbir şey yazılmayacak:`)
@@ -86,10 +95,15 @@ await db.transaction(async (tx) => {
     })
   }
   for (const u of plan.updates) {
-    await tx.update(schema.users).set({
-      ...(u.title ? { title: u.title } : {}),
-      ...(u.departmentNameTr ? { departmentId: deptId.get(u.departmentNameTr) ?? null } : {}),
-    }).where(eq(schema.users.id, u.userId))
+    if (u.title) {
+      await tx.update(schema.users).set({ title: u.title })
+        .where(and(eq(schema.users.id, u.userId), isNull(schema.users.title)))
+    }
+    const departmentId = u.departmentNameTr ? deptId.get(u.departmentNameTr) : undefined
+    if (departmentId) {
+      await tx.update(schema.users).set({ departmentId })
+        .where(and(eq(schema.users.id, u.userId), isNull(schema.users.departmentId)))
+    }
   }
   const byKey = new Map(existing.map((u) => [normaliseName(u.name), u.id]))
   const resolve = (key: string) => idOfKey.get(key) ?? byKey.get(key)
@@ -97,7 +111,8 @@ await db.transaction(async (tx) => {
     const personId = m.existingUserId ?? idOfKey.get(m.personKey)
     const managerId = resolve(m.managerKey)
     if (!personId || !managerId) throw new Error(`Çözülemeyen bağ: ${m.personName} → ${m.managerName}`)
-    await tx.update(schema.users).set({ managerId }).where(eq(schema.users.id, personId))
+    await tx.update(schema.users).set({ managerId })
+      .where(and(eq(schema.users.id, personId), isNull(schema.users.managerId)))
   }
 })
 

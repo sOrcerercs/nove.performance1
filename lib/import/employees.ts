@@ -1,7 +1,7 @@
 import { wouldCreateCycle } from '@/lib/auth/hierarchy'
 
 /**
- * Plans loading the HR employee list (Employee List - Oct 2026.xlsx) and the
+ * Plans loading the HR staff list (İK çalışan listesi, xlsx, kept outside the repo) and the
  * five organisation charts into `users`. Pure: the script reads the files and
  * the database, this decides what to write, and the script writes it.
  *
@@ -37,6 +37,8 @@ export interface ImportPlan {
   similarNames: { listName: string; existingName: string }[]
   /** Creates named only from the list's CAPITALS (no chart/existing spelling) that contain I/ı — the dotless/dotted guess may be wrong. */
   uncertainCasing: string[]
+  /** Existing passive users a list row matched, and passive users a chart edge names as manager — fill-blanks still applies, but someone should look. */
+  passiveMatches: string[]
   errors: string[]
 }
 
@@ -115,6 +117,7 @@ export function planImport(
   const updates: PlannedUpdate[] = []
   const similarNames: ImportPlan['similarNames'] = []
   const uncertainCasing: string[] = []
+  const passiveMatches: string[] = []
 
   rows.forEach((r, i) => {
     const line = i + 2 // header is line 1
@@ -148,6 +151,7 @@ export function planImport(
     const match = existingByKey.get(key)
     if (match) {
       matched.add(match.id)
+      if (match.state === 'passive') passiveMatches.push(match.name)
       const update: PlannedUpdate = { userId: match.id, name: match.name }
       if (!match.title && title) update.title = title
       if (!match.departmentId && departmentNameTr) update.departmentNameTr = departmentNameTr
@@ -171,6 +175,8 @@ export function planImport(
   for (const [managerRaw, reports] of Object.entries(org.chart)) {
     const managerKey = normaliseName(canonical(managerRaw))
     if (!nameOfKey.has(managerKey)) { unresolved.add(canonical(managerRaw)); continue }
+    const passiveManager = existingByKey.get(managerKey)?.state === 'passive'
+    let passiveNoted = false
     for (const reportRaw of reports) {
       const personKey = normaliseName(canonical(reportRaw))
       if (!nameOfKey.has(personKey)) { unresolved.add(canonical(reportRaw)); continue }
@@ -180,6 +186,7 @@ export function planImport(
         continue
       }
       managerOf.set(personKey, managerKey)
+      if (passiveManager && !passiveNoted) { passiveMatches.push(`${nameOfKey.get(managerKey)} (yönetici olarak)`); passiveNoted = true }
     }
   }
 
@@ -216,6 +223,7 @@ export function planImport(
     unresolvedChartNames: [...unresolved],
     similarNames,
     uncertainCasing,
+    passiveMatches,
     errors,
   }
 }

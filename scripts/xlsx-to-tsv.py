@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Exports the HR employee workbook's first sheet to TSV for scripts/import-employees.ts.
+"""Exports the HR staff workbook's first sheet to TSV for scripts/import-employees.ts.
 
     python3 scripts/xlsx-to-tsv.py "<xlsx path>" "<tsv path outside the repo>"
 

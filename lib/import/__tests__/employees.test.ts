@@ -150,3 +150,15 @@ test('list-only names containing I/ı are flagged for a casing check', () => {
   const plan = planImport([row('IVAN', 'IVANOV', 'Satış'), row('ESRA', 'KOÇ', 'Satış')], [], DEPTS)
   expect(plan.uncertainCasing).toEqual(['Ivan Ivanov'])
 })
+
+test('passive people a list row or a chart edge touches are flagged for review', () => {
+  const passive = (id: string, name: string) => ({ ...existing(id, name), state: 'passive' as const })
+  const plan = planImport(
+    [row('ELİF', 'DEMİR', 'Satış'), row('Veli', 'Kara', 'Satış')],
+    [passive('u1', 'Elif Demir'), passive('u2', 'Ayhan Boz'), existing('u3', 'Veli Kara')],
+    DEPTS,
+    { chart: { 'Ayhan Boz': ['Veli Kara'] }, aliases: {} },
+  )
+  expect(plan.passiveMatches).toEqual(['Elif Demir', 'Ayhan Boz (yönetici olarak)'])
+  expect(plan.managers).toHaveLength(1)
+})
