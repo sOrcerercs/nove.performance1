@@ -1,4 +1,5 @@
 import {
+  type AnyPgColumn,
   doublePrecision,
   integer,
   pgEnum,
@@ -45,12 +46,21 @@ export const users = pgTable(
   'users',
   {
     id: text('id').primaryKey(),
-    email: text('email').notNull(),
+    /**
+     * Null until someone types it in: the HR list has no email column, and a
+     * person without one simply cannot sign in. The unique index still holds —
+     * Postgres allows any number of NULLs under it.
+     */
+    email: text('email'),
     name: text('name').notNull(),
     // Null for `staff`: they are personnel records, not accounts.
     passwordHash: text('password_hash'),
     role: roleEnum('role').notNull().default('staff'),
     departmentId: text('department_id').references(() => departments.id),
+    /** Who this person reports to — the organisation chart, one edge per person. */
+    managerId: text('manager_id').references((): AnyPgColumn => users.id),
+    /** Job title from the HR list. Display only. */
+    title: text('title'),
     state: userStateEnum('state').notNull().default('active'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },

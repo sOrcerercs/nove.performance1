@@ -13,7 +13,9 @@ import {
   setUserPasswordAs,
   setUserRoleAs,
   setUserStateAs,
+  updateUserFieldsAs,
 } from '../core/users'
+import { FORBIDDEN } from '../types'
 
 async function seeded() {
   const db = await createTestDb()
@@ -294,4 +296,97 @@ test('an executive can still change their own password — self-service does not
     currentPassword: password, newPassword: NEW_PASSWORD,
   })
   expect(res.ok).toBe(true)
+})
+
+/* --------------------------- people & hierarchy --------------------------- */
+
+async function person(
+  db: Awaited<ReturnType<typeof seeded>>,
+  name: string,
+  managerId?: string,
+): Promise<string> {
+  const res = await createUserAs(db, actor('admin'), { name, role: 'staff', departmentId: null })
+  if (!res.ok) throw new Error(res.error.tr)
+  if (managerId) {
+    const m = await updateUserFieldsAs(db, actor('admin'), { userId: res.data.id, managerId })
+    if (!m.ok) throw new Error(m.error.tr)
+  }
+  return res.data.id
+}
+
+test('a staff record can be created without an email', async () => {
+  const db = await seeded()
+  const id = await person(db, 'E-postasız Kişi')
+  const [row] = await db.select().from(users).where(eq(users.id, id))
+  expect(row).toMatchObject({ email: null, passwordHash: null, managerId: null })
+})
+
+test('an account that can sign in still needs an email', async () => {
+  const db = await seeded()
+  const res = await createUserAs(db, actor('admin'), {
+    name: 'Adressiz Yönetici', role: 'admin', departmentId: null, password: 'uzun-bir-parola-123',
+  })
+  expect(res.ok).toBe(false)
+})
+
+test('department, manager and title are set one field at a time; absent fields are left alone', async () => {
+  const db = await seeded()
+  const boss = await person(db, 'Bölüm Müdürü')
+  const worker = await person(db, 'Ekip Üyesi')
+
+  expect((await updateUserFieldsAs(db, actor('admin'), { userId: worker, departmentId: 'satis' })).ok).toBe(true)
+  expect((await updateUserFieldsAs(db, actor('admin'), { userId: worker, managerId: boss })).ok).toBe(true)
+  expect((await updateUserFieldsAs(db, actor('admin'), { userId: worker, title: '  Uzman  ' })).ok).toBe(true)
+
+  const [row] = await db.select().from(users).where(eq(users.id, worker))
+  expect(row).toMatchObject({ departmentId: 'satis', managerId: boss, title: 'Uzman' })
+
+  // Clearing works too.
+  await updateUserFieldsAs(db, actor('admin'), { userId: worker, managerId: null, title: '' })
+  const [cleared] = await db.select().from(users).where(eq(users.id, worker))
+  expect(cleared).toMatchObject({ departmentId: 'satis', managerId: null, title: null })
+})
+
+test('a manager assignment that would close a loop is refused, in both languages', async () => {
+  const db = await seeded()
+  const top = await person(db, 'Tepe Kişi')
+  const mid = await person(db, 'Orta Kişi', top)
+  const res = await updateUserFieldsAs(db, actor('admin'), { userId: top, managerId: mid })
+  expect(res.ok).toBe(false)
+  if (!res.ok) {
+    expect(res.error.tr).toContain('döngü')
+    expect(res.error.en).toContain('loop')
+  }
+  expect((await updateUserFieldsAs(db, actor('admin'), { userId: top, managerId: top })).ok).toBe(false)
+})
+
+test('a passive person or an unknown id cannot be made a manager', async () => {
+  const db = await seeded()
+  const old = await person(db, 'Ayrılan Kişi')
+  await setUserStateAs(db, actor('admin'), { userId: old, state: 'passive' })
+  const worker = await person(db, 'Yeni Kişi')
+  expect((await updateUserFieldsAs(db, actor('admin'), { userId: worker, managerId: old })).ok).toBe(false)
+  expect((await updateUserFieldsAs(db, actor('admin'), { userId: worker, managerId: 'u-yok' })).ok).toBe(false)
+  expect((await updateUserFieldsAs(db, actor('admin'), { userId: worker, departmentId: 'yok' })).ok).toBe(false)
+})
+
+test('a person with active reports cannot be deactivated or deleted', async () => {
+  const db = await seeded()
+  const boss = await person(db, 'Ekip Lideri')
+  await person(db, 'Ekip Üyesi Bir', boss)
+
+  const passive = await setUserStateAs(db, actor('admin'), { userId: boss, state: 'passive' })
+  expect(passive.ok).toBe(false)
+  if (!passive.ok) expect(passive.error.tr).toContain('1 aktif çalışan')
+
+  expect((await deleteUserAs(db, actor('admin'), { userId: boss })).ok).toBe(false)
+})
+
+test('only İK (admin) edits these fields', async () => {
+  const db = await seeded()
+  const worker = await person(db, 'Herhangi Biri')
+  expect(await updateUserFieldsAs(db, actor('executive'), { userId: worker, title: 'x' })).toEqual({
+    ok: false,
+    error: FORBIDDEN,
+  })
 })

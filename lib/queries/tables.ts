@@ -84,7 +84,7 @@ export type KrMonthlyValueRow = typeof krMonthlyValues.$inferSelect
 /** Deliberately excludes `passwordHash`: no render path has any use for it. */
 export type UserRow = Pick<
   typeof users.$inferSelect,
-  'id' | 'name' | 'email' | 'role' | 'departmentId' | 'state'
+  'id' | 'name' | 'email' | 'role' | 'departmentId' | 'managerId' | 'title' | 'state'
 >
 
 /** Oldest first — the order the period picker lists them in. */
@@ -103,6 +103,8 @@ export const allUsers = (db: Db): Promise<UserRow[]> =>
         email: users.email,
         role: users.role,
         departmentId: users.departmentId,
+        managerId: users.managerId,
+        title: users.title,
         state: users.state,
       })
       .from(users),

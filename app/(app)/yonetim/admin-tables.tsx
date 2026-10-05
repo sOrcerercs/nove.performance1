@@ -14,7 +14,9 @@ import {
   updatePeriodDates,
   setUserRole,
   setUserState,
+  updateUserFields,
 } from '@/lib/actions/admin'
+import { managerCandidates } from '@/lib/auth/hierarchy'
 import { canSignIn, type Role } from '@/lib/domain/types'
 import type { Bilingual } from '@/lib/domain/types'
 import { ROLE_KEY, tx } from '@/lib/i18n/strings'
@@ -76,6 +78,19 @@ export function AdminTables({
   // Default date range start
   const [rangeStart, setRangeStart] = useState(vm.defaultRangeStart)
 
+  type UserFilter = 'all' | 'noDept' | 'noManager'
+  const [userFilter, setUserFilter] = useState<UserFilter>('all')
+  const [deptFilter, setDeptFilter] = useState('')
+  const activeUsers = vm.users.filter((u) => u.state === 'active')
+  const missingDept = activeUsers.filter((u) => u.departmentId === null).length
+  const missingManager = activeUsers.filter((u) => u.managerId === null).length
+  const visibleUsers = vm.users.filter((u) =>
+    (userFilter === 'all' ||
+      (u.state === 'active' && (userFilter === 'noDept' ? u.departmentId === null : u.managerId === null))) &&
+    (deptFilter === '' || u.departmentId === deptFilter),
+  )
+  const candidatesFor = (userId: string) => managerCandidates(userId, vm.users)
+
   const refresh = () => startTransition(() => router.refresh())
 
   const stateLabel = (s: string) =>
@@ -100,7 +115,7 @@ export function AdminTables({
     const ok = await run(
       () => createUser({
         name,
-        email,
+        email: email.trim() || null,
         role,
         departmentId: deptId || null,
         ...(canSignIn(role) ? { password } : {}),
@@ -155,7 +170,7 @@ export function AdminTables({
           />
           <input
             className={`${styles.input} ${styles.inputEmail}`}
-            type="email" placeholder="ad.soyad@nove.group" aria-label={t('email')}
+            type="email" placeholder={canSignIn(role) ? 'ad.soyad@nove.group' : t('emailOptionalPh')} aria-label={t('email')}
             value={email} onChange={(e) => setEmail(e.target.value)}
           />
           <select
@@ -183,26 +198,45 @@ export function AdminTables({
           ) : null}
           <button
             type="button" className={styles.primary}
-            disabled={pending || name.trim() === '' || email.trim() === ''}
+            disabled={pending || name.trim() === '' || (canSignIn(role) && email.trim() === '')}
             onClick={onCreateUser}
           >
             {t('add')}
           </button>
         </div>
 
+        <div className={styles.inviteBar} role="group" aria-label={t('filterEveryone')}>
+          <select className={styles.select} aria-label={t('filterEveryone')} value={userFilter}
+            onChange={(e) => setUserFilter(e.target.value as UserFilter)}>
+            <option value="all">{t('filterEveryone')} ({vm.users.length})</option>
+            <option value="noDept">{t('filterNoDept')} ({missingDept})</option>
+            <option value="noManager">{t('filterNoManager')} ({missingManager})</option>
+          </select>
+          <select className={styles.select} aria-label={t('filterAllDepts')} value={deptFilter}
+            onChange={(e) => setDeptFilter(e.target.value)}>
+            <option value="">{t('filterAllDepts')}</option>
+            {vm.departments.map((d) => (
+              <option key={d.id} value={d.id}>{tx({ tr: d.nameTr, en: d.nameEn }, lang)}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className={styles.tableScroll}>
         <table className={styles.table}>
           <thead>
             <tr>
               <th scope="col" className={styles.th}>{t('thUser')}</th>
+              <th scope="col" className={styles.th}>{t('thTitle')}</th>
               <th scope="col" className={styles.th}>{t('thRole')}</th>
               <th scope="col" className={styles.th}>{t('thDept')}</th>
+              <th scope="col" className={styles.th}>{t('thManager')}</th>
               <th scope="col" className={`${styles.th} ${styles.thNum}`}>{t('thKrOwned')}</th>
               <th scope="col" className={styles.th}>{t('thStatus')}</th>
               <th scope="col" className={styles.th}>{t('thAction')}</th>
             </tr>
           </thead>
           <tbody>
-            {vm.users.map((u) => {
+            {visibleUsers.map((u) => {
               const isSelf = u.id === currentUserId
               return (
                 <tr className={styles.row} key={u.id}>
@@ -213,9 +247,23 @@ export function AdminTables({
                         <div className={styles.userName}>
                           {u.name}{isSelf ? ` (${t('youTag')})` : ''}
                         </div>
-                        <div className={styles.userEmail}>{u.email}</div>
+                        <div className={styles.userEmail}>{u.email ?? t('emailNone')}</div>
                       </span>
                     </span>
+                  </td>
+
+                  <td className={styles.td}>
+                    <input
+                      key={u.title ?? ''}
+                      className={`${styles.input} ${styles.cellField}`} defaultValue={u.title ?? ''} placeholder={t('titlePh')}
+                      aria-label={`${u.name} ${t('thTitle')}`} disabled={pending}
+                      onBlur={(e) => {
+                        const next = e.target.value.trim()
+                        if (next !== (u.title ?? '')) {
+                          void run(() => updateUserFields({ userId: u.id, title: next || null }), t('toastTitleUpdated'))
+                        }
+                      }}
+                    />
                   </td>
 
                   <td className={styles.td}>
@@ -234,9 +282,37 @@ export function AdminTables({
                   </td>
 
                   <td className={styles.td}>
-                    {u.departmentId
-                      ? tx({ tr: u.departmentName, en: u.departmentNameEn }, lang)
-                      : '—'}
+                    <select
+                      className={`${styles.select} ${styles.cellField}`} value={u.departmentId ?? ''} disabled={pending}
+                      aria-label={`${u.name} ${t('thDept')}`}
+                      onChange={(e) =>
+                        run(() => updateUserFields({ userId: u.id, departmentId: e.target.value || null }),
+                            t('toastDeptUpdatedUser'))
+                      }
+                    >
+                      <option value="">{t('deptNone')}</option>
+                      {vm.departments.map((d) => (
+                        <option key={d.id} value={d.id}>{tx({ tr: d.nameTr, en: d.nameEn }, lang)}</option>
+                      ))}
+                    </select>
+                  </td>
+
+                  <td className={styles.td}>
+                    <select
+                      className={`${styles.select} ${styles.cellField}`} value={u.managerId ?? ''} disabled={pending}
+                      aria-label={`${u.name} ${t('thManager')}`}
+                      onChange={(e) =>
+                        run(() => updateUserFields({ userId: u.id, managerId: e.target.value || null }),
+                            t('toastManagerUpdated'))
+                      }
+                    >
+                      <option value="">{t('managerNone')}</option>
+                      {/* A current manager who has since gone passive still shows, so the cell is never blank. */}
+                      {u.managerId && !candidatesFor(u.id).some((m) => m.id === u.managerId) ? (
+                        <option value={u.managerId}>{u.managerName}</option>
+                      ) : null}
+                      {candidatesFor(u.id).map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+                    </select>
                   </td>
 
                   <td className={`${styles.td} ${styles.tdNum}`}>{u.krsOwned}</td>
@@ -310,6 +386,7 @@ export function AdminTables({
             })}
           </tbody>
         </table>
+        </div>
       </section>
 
       <DepartmentsTable rows={vm.departmentRows} people={people} />

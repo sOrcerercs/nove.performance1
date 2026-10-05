@@ -43,6 +43,13 @@
       "when": 1786450618186,
       "tag": "0005_material_gressill",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791200389717,
+      "tag": "0006_people_hierarchy",
+      "breakpoints": true
     }
   ]
 }
