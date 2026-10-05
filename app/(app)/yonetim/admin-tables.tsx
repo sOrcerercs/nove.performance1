@@ -221,6 +221,7 @@ export function AdminTables({
           </select>
         </div>
 
+        <div className={styles.tableScroll}>
         <table className={styles.table}>
           <thead>
             <tr>
@@ -254,7 +255,7 @@ export function AdminTables({
                   <td className={styles.td}>
                     <input
                       key={u.title ?? ''}
-                      className={styles.input} defaultValue={u.title ?? ''} placeholder={t('titlePh')}
+                      className={`${styles.input} ${styles.cellField}`} defaultValue={u.title ?? ''} placeholder={t('titlePh')}
                       aria-label={`${u.name} ${t('thTitle')}`} disabled={pending}
                       onBlur={(e) => {
                         const next = e.target.value.trim()
@@ -282,7 +283,7 @@ export function AdminTables({
 
                   <td className={styles.td}>
                     <select
-                      className={styles.select} value={u.departmentId ?? ''} disabled={pending}
+                      className={`${styles.select} ${styles.cellField}`} value={u.departmentId ?? ''} disabled={pending}
                       aria-label={`${u.name} ${t('thDept')}`}
                       onChange={(e) =>
                         run(() => updateUserFields({ userId: u.id, departmentId: e.target.value || null }),
@@ -298,7 +299,7 @@ export function AdminTables({
 
                   <td className={styles.td}>
                     <select
-                      className={styles.select} value={u.managerId ?? ''} disabled={pending}
+                      className={`${styles.select} ${styles.cellField}`} value={u.managerId ?? ''} disabled={pending}
                       aria-label={`${u.name} ${t('thManager')}`}
                       onChange={(e) =>
                         run(() => updateUserFields({ userId: u.id, managerId: e.target.value || null }),
@@ -385,6 +386,7 @@ export function AdminTables({
             })}
           </tbody>
         </table>
+        </div>
       </section>
 
       <DepartmentsTable rows={vm.departmentRows} people={people} />

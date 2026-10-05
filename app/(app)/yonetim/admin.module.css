@@ -168,3 +168,10 @@
 }
 .confirmText { color: var(--danger-fg); font-size: 12px; line-height: 18px; }
 .confirmActions { display: flex; gap: 12px; margin-top: 10px; }
+
+/* Users table: scrolls inside the card as a fallback; tighter cells so ~1100px fits. */
+.tableScroll { overflow-x: auto; }
+.tableScroll .th, .tableScroll .td { padding-left: 12px; padding-right: 12px; }
+.tableScroll .th:first-child, .tableScroll .td:first-child { padding-left: 24px; }
+.cellField { width: 100%; min-width: 110px; max-width: 170px; box-sizing: border-box; }
+.tableScroll .input { height: 32px; }
