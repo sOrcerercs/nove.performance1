@@ -61,6 +61,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               canCreate={can(user, 'create:objective', { departmentId: user.departmentId })}
               canManage={can(user, 'manage:users')}
               canEnterMonthly={can(user, 'checkin:kr')}
+              canViewKeyResults={can(user, 'view:report')}
             />
             <Assemble className={styles.main}>{children}</Assemble>
           </div>
