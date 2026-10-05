@@ -136,6 +136,7 @@ export const updateObjectiveSchema = z.object({
         // KR with existing monthly rows, its `current`) instead of failing
         // loudly — every caller must say the rule it means.
         rollup: z.enum(['sum', 'avg', 'last']),
+        // An omitted weight counts as blank: a caller that leaves it out un-weights the objective — always send it.
         weight: z.number().finite().nullable().optional(),
         ownerUserId: z.string().min(1).nullable().default(null),
       }),
