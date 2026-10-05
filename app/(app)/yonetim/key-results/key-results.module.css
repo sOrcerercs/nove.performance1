@@ -5,7 +5,7 @@
 
 .layout {
   display: grid;
-  grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+  grid-template-columns: minmax(200px, 250px) minmax(0, 1fr);
   gap: 24px;
   align-items: start;
 }
@@ -52,7 +52,7 @@
 
 .tableTitle { padding: 16px 24px 8px; font-size: 16px; font-weight: 600; }
 .tableWrap { overflow-x: auto; }
-.table { width: 100%; border-collapse: collapse; min-width: 600px; }
+.table { width: 100%; border-collapse: collapse; min-width: 680px; }
 .th {
   background: var(--surface-alt);
   border-bottom: 1px solid var(--border);

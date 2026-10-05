@@ -27,7 +27,7 @@ describe('buildMonthlyTable', () => {
       ],
     })
     expect(rows.map((r) => r.month)).toEqual(MONTHS)
-    expect(rows[0]).toMatchObject({ target: 1.5, actual: 1.8, status: 'entered', note: 'kampanya ayı' })
+    expect(rows[0]).toMatchObject({ monthlyTarget: 1.5, actual: 1.8, status: 'entered', note: 'kampanya ayı' })
     expect(rows[0]!.diff).toBeCloseTo(0.3)
     expect(rows[1]!.diff).toBeCloseTo(0.1)
     expect(rows[2]).toMatchObject({ actual: null, diff: null, status: 'pending', note: null })

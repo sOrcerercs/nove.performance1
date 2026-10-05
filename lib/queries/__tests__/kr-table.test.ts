@@ -46,7 +46,7 @@ test('the selected key result carries a full-period monthly table with its entri
   // The monthly target follows the key result's own rule.
   const [kr] = await db.select().from(keyResults).where(eq(keyResults.id, 'k-sat-italya'))
   const expected = kr!.rollup === 'sum' ? kr!.target / 12 : kr!.target
-  expect(sel.rows[0]!.target).toBeCloseTo(expected)
+  expect(sel.rows[0]!.monthlyTarget).toBeCloseTo(expected)
 })
 
 test('an unknown key result id falls back to the first one; no periods means an empty screen', async () => {

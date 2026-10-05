@@ -98,6 +98,7 @@ export function KrTableScreen({ vm, canEnter }: { vm: KrTableVm; canEnter: boole
                   <tr>
                     <th className={styles.th} scope="col">{t('thMonth')}</th>
                     <th className={`${styles.th} ${styles.num}`} scope="col">{t('thTarget')}</th>
+                    <th className={`${styles.th} ${styles.num}`} scope="col">{t('thMonthlyTarget')}</th>
                     <th className={`${styles.th} ${styles.num}`} scope="col">{t('thActual')}</th>
                     <th className={`${styles.th} ${styles.num}`} scope="col">{t('thDiff')}</th>
                     <th className={styles.th} scope="col">{t('thNote')}</th>
@@ -115,7 +116,8 @@ export function KrTableScreen({ vm, canEnter }: { vm: KrTableVm; canEnter: boole
                       <th className={`${styles.td} ${styles.month}`} scope="row">
                         {formatMonthLong(r.month, lang)}
                       </th>
-                      <td className={`${styles.td} ${styles.num}`}>{val(r.target)}</td>
+                      <td className={`${styles.td} ${styles.num} ${styles.muted}`}>{val(sel.target)}</td>
+                      <td className={`${styles.td} ${styles.num}`}>{val(r.monthlyTarget)}</td>
                       <td className={`${styles.td} ${styles.num} ${r.actual === null ? styles.muted : styles.actual}`}>
                         {r.actual === null ? '—' : val(r.actual)}
                       </td>

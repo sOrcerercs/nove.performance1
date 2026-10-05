@@ -23,10 +23,11 @@ export interface MonthlyValue {
 
 export interface MonthlyRow {
   month: string
-  target: number
+  /** Derived from the yearly target and the rule — see monthlyTarget(). */
+  monthlyTarget: number
   /** Null when nothing has been entered for the month. A recorded 0 is 0. */
   actual: number | null
-  /** actual − target; null when there is no actual. */
+  /** actual − monthlyTarget; null when there is no actual. */
   diff: number | null
   /** Whether the month moved the right way; null when there is no actual. */
   onTrack: boolean | null
@@ -50,12 +51,12 @@ export function buildMonthlyTable(input: {
   return months.map((month) => {
     const v = byMonth.get(month)
     if (!v) {
-      return { month, target: perMonth, actual: null, diff: null, onTrack: null, note: null, status: 'pending' }
+      return { month, monthlyTarget: perMonth, actual: null, diff: null, onTrack: null, note: null, status: 'pending' }
     }
     const diff = v.value - perMonth
     return {
       month,
-      target: perMonth,
+      monthlyTarget: perMonth,
       actual: v.value,
       diff,
       onTrack: rising ? diff >= 0 : diff <= 0,
