@@ -4,8 +4,9 @@ import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { useToast } from '@/components/ui/ToastProvider'
 import { createObjective } from '@/lib/actions/objectives'
+import { checkWeights, equalWeights, weightTotal } from '@/lib/domain/weights'
 import type { RollupRule } from '@/lib/domain/types'
-import { tx } from '@/lib/i18n/strings'
+import { fill, tx } from '@/lib/i18n/strings'
 import { usePrefs } from '@/lib/prefs/PrefsProvider'
 import type { AssignablePerson } from '@/lib/queries/people'
 import { titleHint } from '@/lib/validation/objective'
@@ -40,11 +41,15 @@ interface KrDraft {
   /** Empty until chosen: there is deliberately no default rule. */
   rollup: RollupRule | ''
   ownerUserId: string
+  weight: string
 }
 
 const emptyKr = (): KrDraft => ({
-  title: '', start: '0', current: '', target: '100', unit: '%', rollup: '', ownerUserId: '',
+  title: '', start: '0', current: '', target: '100', unit: '%', rollup: '', ownerUserId: '', weight: '',
 })
+
+/** Blank means "not set"; anything unparsable becomes NaN, which counts as not set (save stays off). */
+const parseWeight = (s: string): number | null => (s.trim() === '' ? null : Number(s))
 
 const ROLLUPS: { key: RollupRule; label: 'rollupSum' | 'rollupAvg' | 'rollupLast' }[] = [
   { key: 'sum', label: 'rollupSum' },
@@ -81,7 +86,10 @@ export function Wizard({
   // Mirrors the server schema: a title plus at least one complete key result.
   const filledKrs = krs.filter((k) => k.title.trim().length >= 3)
   const rulesMissing = filledKrs.some((k) => k.rollup === '')
-  const isValid = title.trim().length > 0 && filledKrs.length >= 1 && !rulesMissing
+  const weights = filledKrs.map((k) => parseWeight(k.weight))
+  const weightProblem = checkWeights(weights, { required: true })
+  const isValid =
+    title.trim().length > 0 && filledKrs.length >= 1 && !rulesMissing && weightProblem === null
 
   const editKr = (i: number, patch: Partial<KrDraft>) =>
     setKrs((prev) => prev.map((k, j) => (j === i ? { ...k, ...patch } : k)))
@@ -104,6 +112,7 @@ export function Wizard({
         unit: k.unit,
         rollup: k.rollup as RollupRule, // guaranteed by isValid
         ownerUserId: k.ownerUserId || null,
+        weight: parseWeight(k.weight),
       })),
     })
 
@@ -283,6 +292,20 @@ export function Wizard({
                   </select>
                 </div>
                 <div>
+                  <label className={styles.label}>{t('fieldWeight')}</label>
+                  <input
+                    className={styles.input}
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max="100"
+                    value={kr.weight}
+                    aria-label={`${t('fieldKr')} ${i + 1} ${t('fieldWeight')}`}
+                    aria-invalid={kr.title.trim().length >= 3 && weightProblem !== null ? true : undefined}
+                    onChange={(e) => editKr(i, { weight: e.target.value })}
+                  />
+                </div>
+                <div>
                   <label className={styles.label}>{t('fieldOwner')}</label>
                   <select
                     className={styles.select}
@@ -308,6 +331,26 @@ export function Wizard({
           >
             + {t('addKr')}
           </button>
+          <div className={styles.countHint}>
+            <span className={weightProblem === null ? styles.weightOk : styles.weightOff}>
+              {fill(t('weightTotal'), { total: weightTotal(weights).toLocaleString(lang === 'en' ? 'en-US' : 'tr-TR') })}
+            </span>{' '}
+            <button
+              type="button"
+              className={styles.secondary}
+              disabled={filledKrs.length === 0}
+              onClick={() => {
+                const shares = equalWeights(filledKrs.length)
+                let j = 0
+                setKrs((prev) =>
+                  prev.map((k) => (k.title.trim().length >= 3 ? { ...k, weight: String(shares[j++]) } : k)),
+                )
+              }}
+            >
+              {t('weightEqual')}
+            </button>
+            <div>{t('weightHintNew')}</div>
+          </div>
           <p className={styles.countHint}>
             {t('krCountHint')} · <strong>{t('thCurrent')}</strong> {t('currentBlankNote')}
           </p>

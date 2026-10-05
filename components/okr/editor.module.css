@@ -150,3 +150,7 @@
   color: var(--danger-fg);
   font-size: 13px;
 }
+
+.weightOk { color: var(--success-fg); font-weight: 600; }
+.weightOff { color: var(--warning-fg); font-weight: 600; }
+.weightBar { margin-top: 10px; font-size: 12px; color: var(--text-muted); }
