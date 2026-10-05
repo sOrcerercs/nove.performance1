@@ -79,11 +79,11 @@ test('every seeded account gets a hashed password', async () => {
   expect(rows.length).toBeGreaterThan(0)
 
   for (const u of rows) {
-    expect(canSignIn(u.role), u.email).toBe(true)
-    expect(u.passwordHash, u.email).toBeTruthy()
+    expect(canSignIn(u.role), u.email ?? undefined).toBe(true)
+    expect(u.passwordHash, u.email ?? undefined).toBeTruthy()
     // Stored hashed, never in the clear.
-    expect(u.passwordHash, u.email).not.toBe(password)
-    expect(u.passwordHash?.startsWith('$2'), u.email).toBe(true)
+    expect(u.passwordHash, u.email ?? undefined).not.toBe(password)
+    expect(u.passwordHash?.startsWith('$2'), u.email ?? undefined).toBe(true)
   }
 })
 

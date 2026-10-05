@@ -213,7 +213,7 @@ export function AdminTables({
                         <div className={styles.userName}>
                           {u.name}{isSelf ? ` (${t('youTag')})` : ''}
                         </div>
-                        <div className={styles.userEmail}>{u.email}</div>
+                        <div className={styles.userEmail}>{u.email ?? '—'}</div>
                       </span>
                     </span>
                   </td>

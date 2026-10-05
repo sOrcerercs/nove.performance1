@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm'
 import { expect, test } from 'vitest'
 import { createTestDb } from '../index'
+import { seed } from '../seed'
 import { departments, keyResults, objectives, periods, users } from '../schema'
 
 test('a department round-trips through the database', async () => {
@@ -66,4 +67,27 @@ test('email uniqueness is enforced by the database, not just the app', async () 
   await expect(
     db.insert(users).values({ id: 'u2', email: 'a@nove.group', name: 'B' }),
   ).rejects.toThrow()
+})
+
+test('a person can exist without an email; addresses stay unique; null never matches', async () => {
+  const db = await createTestDb()
+  await seed(db)
+
+  // Two people without an email: NULLs do not collide under the unique index.
+  await db.insert(users).values({ id: 'u-ad-bir', name: 'Deneme Bir', email: null, role: 'staff', state: 'active' })
+  await db.insert(users).values({ id: 'u-ad-iki', name: 'Deneme İki', email: null, role: 'staff', state: 'active' })
+
+  // A taken address is still refused.
+  const [someone] = await db.select().from(users).where(eq(users.id, 'u-kagan.ozturk'))
+  await expect(
+    db.insert(users).values({ id: 'u-kopya', name: 'Kopya', email: someone!.email, role: 'staff', state: 'active' }),
+  ).rejects.toThrow()
+
+  // Reporting line and title are stored.
+  await db.update(users).set({ managerId: 'u-ad-bir', title: 'Uzman' }).where(eq(users.id, 'u-ad-iki'))
+  const [two] = await db.select().from(users).where(eq(users.id, 'u-ad-iki'))
+  expect(two).toMatchObject({ managerId: 'u-ad-bir', title: 'Uzman' })
+
+  // The sign-in lookup is by email; an empty address must not find the null rows.
+  expect(await db.select().from(users).where(eq(users.email, ''))).toEqual([])
 })

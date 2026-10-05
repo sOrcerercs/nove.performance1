@@ -9,7 +9,7 @@ export type PeriodState = 'active' | 'closed' | 'planned'
 export interface AdminUser {
   id: string
   name: string
-  email: string
+  email: string | null
   role: Role
   departmentId: string | null
   /**
