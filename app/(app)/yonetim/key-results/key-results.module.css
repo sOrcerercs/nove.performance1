@@ -5,7 +5,7 @@
 
 .layout {
   display: grid;
-  grid-template-columns: minmax(240px, 320px) minmax(0, 1fr);
+  grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
   gap: 24px;
   align-items: start;
 }
@@ -52,23 +52,25 @@
 
 .tableTitle { padding: 16px 24px 8px; font-size: 16px; font-weight: 600; }
 .tableWrap { overflow-x: auto; }
-.table { width: 100%; border-collapse: collapse; min-width: 640px; }
+.table { width: 100%; border-collapse: collapse; min-width: 600px; }
 .th {
   background: var(--surface-alt);
   border-bottom: 1px solid var(--border);
-  padding: 10px 24px;
+  padding: 10px 14px;
   text-align: left;
   font-size: 12px; font-weight: 600; color: var(--text-secondary);
 }
 .num { text-align: right; font-variant-numeric: tabular-nums; }
 .row { border-bottom: 1px solid var(--border); }
 .row:last-child { border-bottom: none; }
-.td { padding: 12px 24px; font-size: 14px; vertical-align: middle; }
+.td { padding: 11px 14px; font-size: 14px; vertical-align: middle; }
+.th:first-child, .td:first-child { padding-left: 24px; }
+.month { font-weight: 400; text-align: left; white-space: nowrap; }
 .actual { font-weight: 600; }
 .muted { color: var(--text-muted); }
 .good { color: var(--success-fg); }
 .bad { color: var(--danger-fg); }
-.note { color: var(--text-secondary); max-width: 32ch; }
+.note { color: var(--text-secondary); min-width: 14ch; max-width: 30ch; }
 
 .badge {
   display: inline-block; padding: 2px 10px; border-radius: var(--radius-full);

@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import { formatMonth, formatNumber, formatValue } from '@/lib/domain/format'
+import { formatMonthLong, formatPrecise, formatValuePrecise } from '@/lib/domain/format'
 import { fill, tx } from '@/lib/i18n/strings'
 import { usePrefs } from '@/lib/prefs/PrefsProvider'
 import type { KrTableVm } from '@/lib/queries/kr-table'
@@ -27,7 +27,12 @@ export function KrTableScreen({ vm, canEnter }: { vm: KrTableVm; canEnter: boole
   }
 
   const sel = vm.selected
-  const signed = (n: number) => (n > 0 ? `+${formatNumber(n, lang)}` : formatNumber(n, lang))
+  // Two decimals: on a 4.75 survey target, 4.74 must not read as "4,7".
+  const val = (n: number) => formatValuePrecise(n, sel?.unit ?? '', lang)
+  const signed = (n: number) => {
+    const s = formatPrecise(n, lang)
+    return n > 0 && s !== '0' ? `+${s}` : s
+  }
 
   return (
     <>
@@ -74,15 +79,15 @@ export function KrTableScreen({ vm, canEnter }: { vm: KrTableVm; canEnter: boole
               </span>
               <h2 id="kr-title" className={styles.krTitle}>{tx({ tr: sel.titleTr, en: sel.titleEn }, lang)}</h2>
               <div className={styles.facts}>
-                <span>{t('thStart')}: <strong>{formatValue(sel.start, sel.unit, lang)}</strong></span>
-                <span>{t('thTarget')}: <strong>{formatValue(sel.target, sel.unit, lang)}</strong></span>
-                <span>{t('thCurrent')}: <strong>{formatValue(sel.current, sel.unit, lang)}</strong></span>
+                <span>{t('thStart')}: <strong>{val(sel.start)}</strong></span>
+                <span>{t('thTarget')}: <strong>{val(sel.target)}</strong></span>
+                <span>{t('thCurrent')}: <strong>{val(sel.current)}</strong></span>
                 <span>{t('fieldRollup')}: <strong>{t(RULE_LABEL[sel.rule])}</strong></span>
               </div>
               <span className={styles.targetNote}>
                 {sel.rule === 'sum'
-                  ? fill(t('monthlyTargetSum'), { target: formatValue(sel.target, sel.unit, lang), n: sel.rows.length })
-                  : fill(t('monthlyTargetSame'), { target: formatValue(sel.target, sel.unit, lang), rule: t(RULE_LABEL[sel.rule]) })}
+                  ? fill(t('monthlyTargetSum'), { target: val(sel.target), n: sel.rows.length })
+                  : fill(t('monthlyTargetSame'), { target: val(sel.target), rule: t(RULE_LABEL[sel.rule]) })}
               </span>
             </div>
 
@@ -107,12 +112,12 @@ export function KrTableScreen({ vm, canEnter }: { vm: KrTableVm; canEnter: boole
                 <tbody>
                   {sel.rows.map((r) => (
                     <tr key={r.month} className={styles.row}>
-                      <th className={styles.td} scope="row" style={{ fontWeight: 400, textAlign: 'left' }}>
-                        {formatMonth(r.month, lang)}
+                      <th className={`${styles.td} ${styles.month}`} scope="row">
+                        {formatMonthLong(r.month, lang)}
                       </th>
-                      <td className={`${styles.td} ${styles.num}`}>{formatValue(r.target, sel.unit, lang)}</td>
+                      <td className={`${styles.td} ${styles.num}`}>{val(r.target)}</td>
                       <td className={`${styles.td} ${styles.num} ${r.actual === null ? styles.muted : styles.actual}`}>
-                        {r.actual === null ? '—' : formatValue(r.actual, sel.unit, lang)}
+                        {r.actual === null ? '—' : val(r.actual)}
                       </td>
                       <td
                         className={`${styles.td} ${styles.num} ${
