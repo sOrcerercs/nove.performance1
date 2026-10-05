@@ -19,6 +19,34 @@ export function formatNumber(n: number | null | undefined, lang: Lang): string {
   return String(n)
 }
 
+/**
+ * Like formatNumber, but keeps up to two decimals (trimmed) instead of one —
+ * for tables where 4.74 vs 4.75 matters (survey scores, rates). Also removes
+ * float noise such as 1.6 − 1.5 = 0.10000000000000009, and never prints "-0".
+ */
+export function formatPrecise(n: number | null | undefined, lang: Lang): string {
+  if (n === null || n === undefined || Number.isNaN(n)) return '—'
+  const out = new Intl.NumberFormat(LOCALE[lang], { maximumFractionDigits: 2 }).format(n)
+  return out === '-0' ? '0' : out
+}
+
+/** formatValue with formatPrecise's number. */
+export function formatValuePrecise(n: number, unit: string, lang: Lang): string {
+  const num = formatPrecise(n, lang)
+  if (!unit) return num
+  return unit === '%' ? `${num}%` : `${num} ${unit}`
+}
+
+/** "Eylül 2026" / "September 2026" — the full month name, for table rows. */
+export function formatMonthLong(month: string, lang: Lang): string {
+  const [year, index] = month.split('-').map(Number) as [number, number]
+  return new Date(Date.UTC(year, index - 1, 1)).toLocaleDateString(LOCALE[lang], {
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC',
+  })
+}
+
 /** A measurement with its unit. Percent hugs the number; every other unit gets a space. */
 export function formatValue(n: number, unit: string, lang: Lang): string {
   const num = formatNumber(n, lang)

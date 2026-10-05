@@ -87,3 +87,20 @@ test('relative days read naturally in both languages', () => {
   expect(formatUpdatedAgo(1, 'tr')).toBe('1 gün önce güncellendi')
   expect(formatUpdatedAgo(2, 'en')).toBe('updated 2 days ago')
 })
+
+test('precise numbers keep up to two decimals, trimmed, in the locale', async () => {
+  const { formatPrecise, formatValuePrecise } = await import('../format')
+  expect(formatPrecise(4.75, 'tr')).toBe('4,75')
+  expect(formatPrecise(-0.01, 'tr')).toBe('-0,01')
+  expect(formatPrecise(62.5, 'en')).toBe('62.5')
+  expect(formatPrecise(1.6 - 1.5, 'en')).toBe('0.1')
+  expect(formatPrecise(57500, 'tr')).toBe('57.500')
+  expect(formatValuePrecise(1.5, '%', 'tr')).toBe('1,5%')
+  expect(formatValuePrecise(750, 'yorum', 'en')).toBe('750 yorum')
+})
+
+test('long month names for tables', async () => {
+  const { formatMonthLong } = await import('../format')
+  expect(formatMonthLong('2026-09', 'tr')).toBe('Eylül 2026')
+  expect(formatMonthLong('2027-08', 'en')).toBe('August 2027')
+})

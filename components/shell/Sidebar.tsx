@@ -21,6 +21,8 @@ interface Props {
    * screen itself still renders a mixed table (some rows read-only) and the
    * server still re-checks every row on save regardless of this flag. */
   canEnterMonthly: boolean
+  /** Key Results (under Yönetim) is oversight: Yönetici and Üst Yönetim. */
+  canViewKeyResults?: boolean
 }
 
 export function Sidebar({
@@ -29,6 +31,7 @@ export function Sidebar({
   canCreate,
   canManage,
   canEnterMonthly,
+  canViewKeyResults = false,
 }: Props) {
   const { t, lang } = usePrefs()
   const pathname = usePathname()
@@ -46,7 +49,12 @@ export function Sidebar({
   const pctOf = (slug: string) => data.pctBySlug[slug] ?? 0
 
   const item = (href: string, label: string, extra?: React.ReactNode) => {
-    const active = href === '/' ? pathname === '/' : pathname.startsWith(href)
+    // Prefix match so sub-pages light their section — except /yonetim, whose
+    // sub-page Key Results has its own entry and must not light both.
+    const active =
+      href === '/' ? pathname === '/'
+      : href === '/yonetim' ? pathname === '/yonetim'
+      : pathname.startsWith(href)
     return (
       <Link
         key={href}
@@ -87,6 +95,7 @@ export function Sidebar({
         {item('/rapor', t('report'))}
         {canEnterMonthly ? item('/veri-girisi', t('navMonthlyEntry')) : null}
         {canManage ? item('/yonetim', t('admin')) : null}
+        {canViewKeyResults ? item('/yonetim/key-results', t('navKeyResults')) : null}
         {item('/yardim', t('userGuide'))}
       </div>
 

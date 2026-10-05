@@ -130,3 +130,18 @@ test('Anasayfa sits above the overview and opens the welcome screen', () => {
   expect(home.getAttribute('href')).toBe('/hosgeldin')
   expect(links.indexOf('navHome')).toBe(links.indexOf('overview') - 1)
 })
+
+test('Key Results sits under Yönetim, only for those who may see it, and lights alone', () => {
+  setSearchParams('')
+  renderSidebar({ canManage: true, canViewKeyResults: false })
+  expect(screen.queryByText('navKeyResults')).toBeNull()
+
+  cleanup()
+  setSearchParams('')
+  vi.mocked(usePathname).mockReturnValue('/yonetim/key-results')
+  renderSidebar({ canManage: true, canViewKeyResults: true })
+  const links = screen.getAllByRole('link').map((a) => a.textContent)
+  expect(links.indexOf('navKeyResults')).toBe(links.indexOf('admin') + 1)
+  expect(screen.getByRole('link', { name: 'navKeyResults' }).getAttribute('aria-current')).toBe('page')
+  expect(screen.getByRole('link', { name: 'admin' }).getAttribute('aria-current')).toBeNull()
+})
