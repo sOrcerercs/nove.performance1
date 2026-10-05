@@ -21,6 +21,8 @@ export interface KrNode {
   confidence: Confidence
   /** How this key result's monthly values collapse into `current` — surfaced so the editor can offer it. */
   rollup: RollupRule
+  /** Percent share inside the objective; null = unweighted. */
+  weight: number | null
   ownerUserId: string | null
   ownerName: string
   updatedAt: Date
@@ -240,6 +242,7 @@ export async function loadTree(
       unit: k.unit,
       confidence: k.confidence,
       rollup: k.rollup,
+      weight: k.weight,
       ownerUserId: k.ownerUserId,
       ownerName: k.ownerUserId ? (nameById.get(k.ownerUserId) ?? '') : '',
       updatedAt: k.updatedAt,

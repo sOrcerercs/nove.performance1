@@ -91,3 +91,13 @@ test('a person can exist without an email; addresses stay unique; null never mat
   // The sign-in lookup is by email; an empty address must not find the null rows.
   expect(await db.select().from(users).where(eq(users.email, ''))).toEqual([])
 })
+
+test('a key result stores an optional weight', async () => {
+  const db = await createTestDb()
+  await seed(db)
+  const [kr] = await db.select().from(keyResults).limit(1)
+  expect(kr!.weight).toBeNull()
+  await db.update(keyResults).set({ weight: 40.5 }).where(eq(keyResults.id, kr!.id))
+  const [after] = await db.select().from(keyResults).where(eq(keyResults.id, kr!.id))
+  expect(after!.weight).toBe(40.5)
+})

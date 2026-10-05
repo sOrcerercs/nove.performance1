@@ -40,6 +40,7 @@
 }
 .krLink:hover { background: var(--blue-50); text-decoration: none; color: var(--text); }
 .krLinkActive { background: var(--blue-50); border-left-color: var(--blue-500); font-weight: 600; }
+.krWeight { margin-left: 6px; font-size: 11px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
 .krCode { font-size: 11px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
 
 /* ---------- selected key result ---------- */

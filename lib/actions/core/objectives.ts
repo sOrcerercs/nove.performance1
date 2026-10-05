@@ -4,8 +4,10 @@ import { can, type SessionUser } from '@/lib/auth/permissions'
 import type { Db } from '@/lib/db'
 import { checkins, departments, keyResults, objectives, periods } from '@/lib/db/schema'
 import { z } from 'zod'
+import { checkWeights, weightTotal } from '@/lib/domain/weights'
 import {
   createObjectiveSchema,
+  weightProblemMessage,
   OBJECTIVE_MESSAGES as M,
   type CreateObjectiveInput,
 } from '@/lib/validation/objective'
@@ -54,6 +56,10 @@ export async function createObjectiveFor(
     return fail(msg('Key result başlangıç ve hedef değeri aynı olamaz.', "A key result's start and target values can't be the same."))
   }
 
+  const weights = data.krs.map((k) => k.weight)
+  const weightProblem = checkWeights(weights, { required: true })
+  if (weightProblem) return fail(weightProblemMessage(weightProblem, weightTotal(weights)))
+
   const existing = await db
     .select({ id: objectives.id })
     .from(objectives)
@@ -89,6 +95,7 @@ export async function createObjectiveFor(
         confidence: 'mid' as const,
         // Per-key-result owner, falling back to the objective's owner.
         ownerUserId: k.ownerUserId ?? data.ownerUserId ?? user.id,
+        weight: k.weight ?? null,
       })),
     )
   })
@@ -129,6 +136,8 @@ export const updateObjectiveSchema = z.object({
         // KR with existing monthly rows, its `current`) instead of failing
         // loudly — every caller must say the rule it means.
         rollup: z.enum(['sum', 'avg', 'last']),
+        // An omitted weight counts as blank: a caller that leaves it out un-weights the objective — always send it.
+        weight: z.number().finite().nullable().optional(),
         ownerUserId: z.string().min(1).nullable().default(null),
       }),
     )
@@ -192,6 +201,10 @@ export async function updateObjectiveFor(
     )
   }
 
+  const weights = data.krs.map((k) => k.weight)
+  const weightProblem = checkWeights(weights, { required: false })
+  if (weightProblem) return fail(weightProblemMessage(weightProblem, weightTotal(weights)))
+
   // An id the caller does not own must not be adoptable into this objective.
   const submittedIds = data.krs.flatMap((k) => (k.id ? [k.id] : []))
   if (submittedIds.some((id) => !existingIds.has(id))) {
@@ -230,6 +243,7 @@ export async function updateObjectiveFor(
             unit: k.unit ?? '',
             confidence: k.confidence,
             rollup: k.rollup,
+            weight: k.weight ?? null,
             ownerUserId: k.ownerUserId ?? data.ownerUserId ?? row.objective.ownerUserId,
             updatedAt: now,
           })
@@ -263,6 +277,7 @@ export async function updateObjectiveFor(
           unit: k.unit ?? '',
           confidence: k.confidence,
           rollup: k.rollup,
+          weight: k.weight ?? null,
           ownerUserId: k.ownerUserId ?? data.ownerUserId ?? row.objective.ownerUserId,
           updatedAt: now,
         })

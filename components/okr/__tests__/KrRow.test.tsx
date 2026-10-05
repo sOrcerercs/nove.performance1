@@ -31,6 +31,7 @@ const BASE: KrVm = {
   unit: '',
   confidence: 'high',
   rollup: 'last',
+  weight: null,
   ownerName: 'Test Owner',
   pct: 0,
   daysSinceUpdate: 0,
@@ -153,4 +154,24 @@ test('a measured key result carries no unmeasured marker', () => {
   // The slot the two markers share still shows the one that belongs there, so
   // this is not passing merely because the cell went blank.
   expect(screen.getByText(/son veri: Eyl 2025/)).toBeTruthy()
+})
+
+test('a weighted key result shows its weight next to the title; an unweighted one shows none', () => {
+  const { unmount } = render(
+    <table>
+      <tbody>
+        <KrRow kr={krVm({ weight: 40 })} asOfMonth="2026-03" />
+      </tbody>
+    </table>,
+  )
+  expect(screen.getByText('%40')).toBeTruthy()
+  unmount()
+  render(
+    <table>
+      <tbody>
+        <KrRow kr={krVm({ weight: null })} asOfMonth="2026-03" />
+      </tbody>
+    </table>,
+  )
+  expect(screen.queryByText('%40')).toBeNull()
 })

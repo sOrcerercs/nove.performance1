@@ -37,6 +37,12 @@ export function formatValuePrecise(n: number, unit: string, lang: Lang): string 
   return unit === '%' ? `${num}%` : `${num} ${unit}`
 }
 
+/** A KR weight as a percentage: TR "%40", EN "40%" (up to two decimals). */
+export function formatWeight(n: number, lang: Lang): string {
+  const s = formatPrecise(n, lang)
+  return lang === 'en' ? `${s}%` : `%${s}`
+}
+
 /** "Eylül 2026" / "September 2026" — the full month name, for table rows. */
 export function formatMonthLong(month: string, lang: Lang): string {
   const [year, index] = month.split('-').map(Number) as [number, number]

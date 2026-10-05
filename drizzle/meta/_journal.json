@@ -50,6 +50,13 @@
       "when": 1791200389717,
       "tag": "0006_people_hierarchy",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1791210795093,
+      "tag": "0007_kr_weights",
+      "breakpoints": true
     }
   ]
 }

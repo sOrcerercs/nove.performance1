@@ -123,3 +123,23 @@ describe('a key result with no distance to cover cannot be measured', () => {
     expect(companyPct([{ objectives: [{ krs: [{ start: 5, current: 5, target: 5 }] }] }])).toBe(0)
   })
 })
+
+describe('weighted objectives', () => {
+  const kr = (start: number, current: number, target: number, weight?: number | null) => ({ start, current, target, weight })
+
+  test('objPct is the weighted mean when every key result has a weight', () => {
+    // 80% at weight 75, 40% at weight 25 → 70
+    expect(objPct([kr(0, 80, 100, 75), kr(0, 40, 100, 25)])).toBe(70)
+  })
+  test('an unmeasurable key result drops out and the rest are re-proportioned', () => {
+    // third KR has target === start; 80 & 40 at 40/40 → 60
+    expect(objPct([kr(0, 80, 100, 40), kr(0, 40, 100, 40), kr(5, 5, 5, 20)])).toBe(60)
+  })
+  test('without weights nothing changes', () => {
+    expect(objPct([kr(0, 80, 100), kr(0, 40, 100)])).toBe(60)
+    expect(objPct([kr(0, 80, 100, null), kr(0, 40, 100, null)])).toBe(60)
+  })
+  test('a partial set of weights falls back to the plain mean', () => {
+    expect(objPct([kr(0, 80, 100, 90), kr(0, 40, 100, null)])).toBe(60)
+  })
+})

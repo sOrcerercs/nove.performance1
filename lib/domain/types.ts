@@ -38,6 +38,8 @@ export interface KrLike {
   start: number
   current: number
   target: number
+  /** Percent share inside its objective; absent or null = unweighted. */
+  weight?: number | null
 }
 
 /**

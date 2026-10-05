@@ -1,7 +1,8 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { useRouter } from 'next/navigation'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { todayInIstanbul } from '@/lib/domain/dates'
+import { updateObjective } from '@/lib/actions/objectives'
 import { usePrefs } from '@/lib/prefs/PrefsProvider'
 import type { ObjectiveDetailVm } from '@/lib/queries/department'
 import { ObjectiveEditor } from '../ObjectiveEditor'
@@ -69,6 +70,7 @@ const OBJ: ObjectiveDetailVm = {
       unit: '',
       confidence: 'mid',
       rollup: 'sum',
+      weight: null,
       ownerName: '',
       pct: 20,
       daysSinceUpdate: 0,
@@ -131,4 +133,36 @@ test('a key result added here cannot be saved until its rule is chosen — no si
 
   fireEvent.change(rule, { target: { value: 'sum' } })
   expect((save as HTMLButtonElement).disabled).toBe(false)
+})
+
+test('an objective without weights saves with null weights; typing weights is optional', async () => {
+  vi.mocked(updateObjective).mockResolvedValue({ ok: true, data: { id: 'o1' } } as never)
+  render(<ObjectiveEditor obj={OBJ} people={[]} />)
+  fireEvent.click(screen.getByText('edit'))
+  fireEvent.change(screen.getByLabelText('fieldKr 1'), { target: { value: 'İtalya hasta sayısı (yeni)' } })
+
+  const save = screen.getByRole('button', { name: 'save' }) as HTMLButtonElement
+  expect(save.disabled).toBe(false)
+  fireEvent.click(save)
+  await waitFor(() => expect(updateObjective).toHaveBeenCalled())
+  expect(vi.mocked(updateObjective).mock.calls[0]![0].krs).toEqual([
+    expect.objectContaining({ id: 'k-sat-italya', weight: null }),
+  ])
+})
+
+test('a half-filled weight set blocks save; split evenly completes it', () => {
+  render(<ObjectiveEditor obj={OBJ} people={[]} />)
+  fireEvent.click(screen.getByText('edit'))
+  fireEvent.click(screen.getByText(/addKr/))
+  fireEvent.change(screen.getByLabelText('fieldKr 2'), { target: { value: 'Yeni ölçülebilir sonuç' } })
+  fireEvent.change(screen.getByLabelText('fieldKr 2 fieldRollup'), { target: { value: 'sum' } })
+
+  const save = screen.getByRole('button', { name: 'save' }) as HTMLButtonElement
+  expect(save.disabled).toBe(false)
+  fireEvent.change(screen.getByLabelText('fieldKr 1 fieldWeight'), { target: { value: '70' } })
+  expect(save.disabled).toBe(true)
+
+  fireEvent.click(screen.getByRole('button', { name: 'weightEqual' }))
+  expect((screen.getByLabelText('fieldKr 2 fieldWeight') as HTMLInputElement).value).toBe('50')
+  expect(save.disabled).toBe(false)
 })

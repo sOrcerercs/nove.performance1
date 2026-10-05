@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import { formatMonthLong, formatPrecise, formatValuePrecise } from '@/lib/domain/format'
+import { formatMonthLong, formatPrecise, formatValuePrecise, formatWeight } from '@/lib/domain/format'
 import { fill, tx } from '@/lib/i18n/strings'
 import { usePrefs } from '@/lib/prefs/PrefsProvider'
 import type { KrTableVm } from '@/lib/queries/kr-table'
@@ -52,8 +52,13 @@ export function KrTableScreen({ vm, canEnter }: { vm: KrTableVm; canEnter: boole
                   <span aria-hidden="true">{d.emoji}</span>
                   {tx({ tr: d.nameTr, en: d.nameEn }, lang)}
                 </div>
-                {d.krs.map((k) => {
+                {d.krs.map((k, i) => {
                   const active = k.id === sel.id
+                  // Muted "no weights set" once per objective, on its first row,
+                  // when none of its listed key results carries a weight.
+                  const group = d.krs.filter((o) => o.objectiveCode === k.objectiveCode && o.periodCode === k.periodCode)
+                  const first = d.krs.findIndex((o) => o.objectiveCode === k.objectiveCode && o.periodCode === k.periodCode) === i
+                  const unweighted = first && group.every((o) => o.weight == null)
                   return (
                     <Link
                       key={k.id}
@@ -63,7 +68,11 @@ export function KrTableScreen({ vm, canEnter }: { vm: KrTableVm; canEnter: boole
                       aria-current={active ? 'true' : undefined}
                     >
                       <span className={styles.krCode}>{k.objectiveCode}</span>
-                      <span>{tx({ tr: k.titleTr, en: k.titleEn }, lang)}</span>
+                      <span>
+                        {tx({ tr: k.titleTr, en: k.titleEn }, lang)}
+                        {k.weight != null ? <span className={styles.krWeight}>{formatWeight(k.weight, lang)}</span> : null}
+                        {unweighted ? <span className={styles.krWeight}>· {t('weightNotSet')}</span> : null}
+                      </span>
                     </Link>
                   )
                 })}

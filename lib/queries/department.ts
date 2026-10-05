@@ -25,6 +25,8 @@ export interface KrVm {
   confidence: Confidence
   /** Needed by the editor's per-key-result rollup selector. */
   rollup: RollupRule
+  /** Percent share inside the objective; null = unweighted. */
+  weight: number | null
   ownerName: string
   pct: number
   daysSinceUpdate: number
@@ -87,6 +89,7 @@ function toKrVm(kr: KrNode): KrVm {
     unit: kr.unit,
     confidence: kr.confidence,
     rollup: kr.rollup,
+    weight: kr.weight,
     ownerName: kr.ownerName,
     pct: krPct(kr),
     daysSinceUpdate: kr.daysSinceUpdate,

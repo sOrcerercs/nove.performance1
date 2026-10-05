@@ -63,6 +63,9 @@ export function ObjectiveCard({
             <span>
               {objective.ownerName} · {objective.krs.length} KR
             </span>
+            {objective.krs.length > 0 && objective.krs.every((k) => k.weight == null) ? (
+              <span className={styles.note}>· {t('weightNotSet')}</span>
+            ) : null}
           </div>
         </div>
 
@@ -232,7 +235,7 @@ export function ObjectiveScreen({
               </span>
               <ProgressBar pct={obj.pct} showValue={false} label={t('objectiveProgress')} />
               <StatusBadge pct={obj.pct} />
-              <span className={styles.note}>{t('simpleAvgNote')}</span>
+              <span className={styles.note}>{obj.krs.length > 0 && obj.krs.every((k) => k.weight != null) ? t('weightedAvgNote') : t('simpleAvgNote')}</span>
             </div>
           </div>
 

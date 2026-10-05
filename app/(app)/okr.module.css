@@ -351,6 +351,7 @@
   white-space: nowrap;
 }
 
+.weight { margin-left: 6px; font-size: 11px; font-weight: 400; color: var(--text-muted); font-variant-numeric: tabular-nums; }
 .latestData { display: block; font-size: 11px; color: var(--text-muted); }
 
 /* Confidence always ships the written label next to the dot — colour alone

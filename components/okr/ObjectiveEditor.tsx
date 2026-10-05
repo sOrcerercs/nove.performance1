@@ -11,6 +11,7 @@ import {
 } from '@/lib/actions/objectives'
 import { todayInIstanbul } from '@/lib/domain/dates'
 import { formatCount } from '@/lib/domain/format'
+import { checkWeights, equalWeights, weightTotal } from '@/lib/domain/weights'
 import type { Confidence, RollupRule } from '@/lib/domain/types'
 import { fill, tx } from '@/lib/i18n/strings'
 import { usePrefs } from '@/lib/prefs/PrefsProvider'
@@ -35,7 +36,11 @@ interface KrDraft {
   /** Empty only on a row added in this form: there is no default rule. */
   rollup: RollupRule | ''
   ownerUserId: string
+  weight: string
 }
+
+/** Blank means "not set"; anything unparsable becomes NaN, which counts as not set (save stays off). */
+const parseWeight = (s: string): number | null => (s.trim() === '' ? null : Number(s))
 
 interface Impact {
   keyResults: number
@@ -95,6 +100,7 @@ export function ObjectiveEditor({
       confidence: k.confidence,
       rollup: k.rollup,
       ownerUserId: k.ownerUserId ?? '',
+      weight: k.weight == null ? '' : String(k.weight),
     })),
   )
   const [ownerUserId, setOwnerUserId] = useState(obj.ownerUserId ?? '')
@@ -107,8 +113,12 @@ export function ObjectiveEditor({
   const editKr = (i: number, patch: Partial<KrDraft>) =>
     setKrs((prev) => prev.map((k, j) => (j === i ? { ...k, ...patch } : k)))
 
+  const weights = krs.map((k) => parseWeight(k.weight))
+  const weightProblem = checkWeights(weights, { required: false })
+  const anyWeight = krs.some((k) => k.weight.trim() !== '')
   const valid = title.trim().length > 0 && krs.length > 0 &&
-    krs.every((k) => k.title.trim().length >= 3 && k.rollup !== '')
+    krs.every((k) => k.title.trim().length >= 3 && k.rollup !== '') &&
+    weightProblem === null
 
   async function onSave() {
     setPending(true)
@@ -127,6 +137,7 @@ export function ObjectiveEditor({
         confidence: k.confidence,
         rollup: k.rollup as RollupRule, // guaranteed by `valid`
         ownerUserId: k.ownerUserId || null,
+        weight: parseWeight(k.weight),
       })),
     })
 
@@ -317,6 +328,16 @@ export function ObjectiveEditor({
               </select>
             </div>
             <div>
+              <label className={styles.label}>{t('fieldWeight')}</label>
+              <input
+                className={styles.input} type="number" step="0.01" min="0" max="100"
+                value={kr.weight}
+                aria-label={`${t('fieldKr')} ${i + 1} ${t('fieldWeight')}`}
+                aria-invalid={weightProblem !== null ? true : undefined}
+                onChange={(e) => editKr(i, { weight: e.target.value })}
+              />
+            </div>
+            <div>
               <label className={styles.label}>{t('fieldOwner')}</label>
               <select
                 className={styles.input} value={kr.ownerUserId}
@@ -340,13 +361,31 @@ export function ObjectiveEditor({
             ...prev,
             {
               title: '', start: '0', currentDisplay: null, target: '100',
-              unit: '%', confidence: 'mid', rollup: '', ownerUserId: '',
+              unit: '%', confidence: 'mid', rollup: '', ownerUserId: '', weight: '',
             },
           ])
         }
       >
         + {t('addKr')}
       </button>
+
+      <div className={styles.weightBar}>
+        {anyWeight ? (
+          <span className={weightProblem === null ? styles.weightOk : styles.weightOff}>
+            {fill(t('weightTotal'), { total: weightTotal(weights).toLocaleString(lang === 'en' ? 'en-US' : 'tr-TR') })}
+          </span>
+        ) : null}{' '}
+        <button
+          type="button" className={styles.secondary} disabled={krs.length === 0}
+          onClick={() => {
+            const shares = equalWeights(krs.length)
+            setKrs((prev) => prev.map((k, j) => ({ ...k, weight: String(shares[j]) })))
+          }}
+        >
+          {t('weightEqual')}
+        </button>
+        <div>{t('weightHintEdit')}</div>
+      </div>
 
       {error ? <p className={styles.error} role="alert">{error}</p> : null}
 
