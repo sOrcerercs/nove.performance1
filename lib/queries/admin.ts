@@ -20,6 +20,10 @@ export interface AdminUser {
   departmentNameEn: string
   state: UserState
   krsOwned: number
+  /** Who this person reports to; '' when unassigned or unknown. */
+  managerId: string | null
+  managerName: string
+  title: string | null
 }
 
 export interface AdminPeriod {
@@ -129,6 +133,9 @@ export async function getAdminData(db: Db): Promise<AdminVm> {
         departmentNameEn: dept?.nameEn ?? '',
         state: u.state,
         krsOwned: ownedById.get(u.id) ?? 0,
+        managerId: u.managerId,
+        managerName: u.managerId ? (userById.get(u.managerId)?.name ?? '') : '',
+        title: u.title,
       }
     }),
     periods: periodRows.map((p) => ({
