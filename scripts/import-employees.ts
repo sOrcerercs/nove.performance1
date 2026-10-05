@@ -17,7 +17,7 @@ import { readFileSync } from 'node:fs'
 import { eq, max } from 'drizzle-orm'
 import { getDb } from '../lib/db'
 import * as schema from '../lib/db/schema'
-import { parseTsv, planImport, type OrgData } from '../lib/import/employees'
+import { normaliseName, parseTsv, planImport, type OrgData } from '../lib/import/employees'
 
 const [tsvPath, orgPath, flag] = process.argv.slice(2)
 if (!tsvPath || !orgPath) {
@@ -50,6 +50,8 @@ console.log(`Açılacak bölüm: ${list(plan.newDepartments.map((d) => d.nameTr)
 console.log(`Şemada olup kimseyle eşleşmeyen ad (atlanır): ${list(plan.unresolvedChartNames)}`)
 console.log(`Benzer ad uyarısı (alias gerekebilir): ${plan.similarNames.length}`)
 for (const s of plan.similarNames) console.log(`  ? "${s.listName}" ↔ mevcut "${s.existingName}"`)
+console.log(`Büyük harften çevrilen, I/ı kontrol edilmesi gereken ad: ${plan.uncertainCasing.length}`)
+for (const n of plan.uncertainCasing) console.log(`  ? ${n}`)
 console.log(`Listede olmayan mevcut kullanıcı (dokunulmaz): ${list(plan.untouched.map((u) => u.name))}`)
 if (plan.errors.length) {
   console.log(`\n${plan.errors.length} HATA — hiçbir şey yazılmayacak:`)
@@ -89,7 +91,7 @@ await db.transaction(async (tx) => {
       ...(u.departmentNameTr ? { departmentId: deptId.get(u.departmentNameTr) ?? null } : {}),
     }).where(eq(schema.users.id, u.userId))
   }
-  const byKey = new Map(existing.map((u) => [u.name.trim().replace(/\s+/g, ' ').toLocaleLowerCase('tr'), u.id]))
+  const byKey = new Map(existing.map((u) => [normaliseName(u.name), u.id]))
   const resolve = (key: string) => idOfKey.get(key) ?? byKey.get(key)
   for (const m of plan.managers) {
     const personId = m.existingUserId ?? idOfKey.get(m.personKey)

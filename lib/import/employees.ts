@@ -35,6 +35,8 @@ export interface ImportPlan {
   untouched: { id: string; name: string }[]
   unresolvedChartNames: string[]
   similarNames: { listName: string; existingName: string }[]
+  /** Creates named only from the list's CAPITALS (no chart/existing spelling) that contain I/ı — the dotless/dotted guess may be wrong. */
+  uncertainCasing: string[]
   errors: string[]
 }
 
@@ -73,8 +75,9 @@ export function toTitleCaseTr(s: string): string {
     .join(' ')
 }
 
+/** Matching key: Turkish lower-case, then ı folded to i so I, İ, ı and i all compare equal. */
 export function normaliseName(s: string): string {
-  return s.trim().replace(/\s+/g, ' ').toLocaleLowerCase('tr')
+  return s.trim().replace(/\s+/g, ' ').toLocaleLowerCase('tr').replace(/ı/g, 'i')
 }
 
 /** Same surname and at least one shared given name — a probable second spelling. */
@@ -97,6 +100,12 @@ export function planImport(
   /** Applies an alias, then title-cases: the one display name a person ends up with. */
   const canonical = (raw: string) => aliasByKey.get(normaliseName(raw)) ?? toTitleCaseTr(raw)
 
+  // The charts' own (mixed-case) spellings, by matching key: preferred over a guess from the list's capitals.
+  const chartSpelling = new Map<string, string>()
+  for (const [manager, reports] of Object.entries(org.chart)) {
+    for (const n of [manager, ...reports]) chartSpelling.set(normaliseName(canonical(n)), canonical(n))
+  }
+
   const known = new Set(depts.map((d) => d.nameTr))
   const existingByKey = new Map(existing.map((u) => [normaliseName(u.name), u]))
   const seen = new Set<string>()
@@ -105,10 +114,14 @@ export function planImport(
   const creates: PlannedCreate[] = []
   const updates: PlannedUpdate[] = []
   const similarNames: ImportPlan['similarNames'] = []
+  const uncertainCasing: string[] = []
 
   rows.forEach((r, i) => {
     const line = i + 2 // header is line 1
-    const name = canonical(`${r.name} ${r.surname}`)
+    const raw = `${r.name} ${r.surname}`
+    const listName = canonical(raw)
+    const chartName = chartSpelling.get(normaliseName(listName))
+    const name = chartName ?? listName
     if (name.trim() === '') { errors.push(`Satır ${line}: ad boş.`); return }
 
     const key = normaliseName(name)
@@ -142,6 +155,7 @@ export function planImport(
       return
     }
 
+    if (!chartName && !aliasByKey.has(normaliseName(raw)) && /[Iı]/.test(name)) uncertainCasing.push(name)
     const near = existing.find((u) => looksLikeSamePerson(name, u.name))
     if (near) similarNames.push({ listName: name, existingName: near.name })
     creates.push({ key, name, title, departmentNameTr, role })
@@ -201,6 +215,7 @@ export function planImport(
     untouched: existing.filter((u) => !matched.has(u.id)).map((u) => ({ id: u.id, name: u.name })),
     unresolvedChartNames: [...unresolved],
     similarNames,
+    uncertainCasing,
     errors,
   }
 }

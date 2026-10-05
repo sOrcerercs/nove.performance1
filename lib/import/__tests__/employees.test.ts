@@ -125,3 +125,28 @@ test('parseTsv reads the needed columns by header', () => {
   const tsv = 'Name\tSurname\tDepartman\tPozisyonu\tWorking Status\nAHMET\tKARA\tMedikal Operasyon\tSaç Ekim Uzmanı\tActive\n'
   expect(parseTsv(tsv)).toEqual([{ name: 'AHMET', surname: 'KARA', department: 'Medikal Operasyon', position: 'Saç Ekim Uzmanı' }])
 })
+
+test('a capitals list row takes the chart’s spelling, so I is not turned into ı', () => {
+  const plan = planImport(
+    [row('ADA', 'BEY', 'Satış'), row('LIAM', 'IRVING', 'Satış')],
+    [],
+    DEPTS,
+    { chart: { 'Ada Bey': ['Liam Irving'] }, aliases: {} },
+  )
+  expect(plan.creates.map((c) => c.name)).toEqual(['Ada Bey', 'Liam Irving'])
+  expect(plan.managers).toHaveLength(1)
+  expect(plan.managers[0]?.personName).toBe('Liam Irving')
+  expect(plan.unresolvedChartNames).toEqual([])
+  expect(plan.uncertainCasing).toEqual([])
+})
+
+test('I/ı/İ/i do not stop a list row matching an existing user', () => {
+  const plan = planImport([row('ILGAZ', 'IŞIK', 'Satış')], [existing('u1', 'Ilgaz Işık')], DEPTS)
+  expect(plan.creates).toEqual([])
+  expect(plan.errors).toEqual([])
+})
+
+test('list-only names containing I/ı are flagged for a casing check', () => {
+  const plan = planImport([row('IVAN', 'IVANOV', 'Satış'), row('ESRA', 'KOÇ', 'Satış')], [], DEPTS)
+  expect(plan.uncertainCasing).toEqual(['Ivan Ivanov'])
+})
