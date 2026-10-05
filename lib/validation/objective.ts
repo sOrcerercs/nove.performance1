@@ -1,5 +1,7 @@
 import { z } from 'zod'
 import { msg } from '@/lib/actions/types'
+import type { Bilingual } from '@/lib/domain/types'
+import type { WeightProblem } from '@/lib/domain/weights'
 
 /**
  * Validation messages in both languages. Zod messages must be strings, so the
@@ -16,6 +18,9 @@ export const OBJECTIVE_MESSAGES = {
   departmentRequired: msg('Bölüm seçilmeli.', 'Select a department.'),
   krsMin: msg('En az 1 key result gerekli.', 'At least 1 key result is required.'),
   krsMax: msg('En fazla 5 key result eklenebilir.', 'You can add at most 5 key results.'),
+  weightMissing: msg('Her key result için ağırlık girin.', 'Enter a weight for every key result.'),
+  weightPartial: msg('Ağırlık ya her key result’a girilmeli ya hiçbirine.', 'Enter a weight for every key result, or for none.'),
+  weightRange: msg('Ağırlık 0’dan büyük, en fazla 100 olmalı (en çok 2 ondalık).', 'A weight must be above 0 and at most 100 (up to 2 decimals).'),
 }
 const M = OBJECTIVE_MESSAGES
 
@@ -41,6 +46,8 @@ export const krDraftSchema = z.object({
    * into `last`, so a cumulative target showed only its latest month.
    */
   rollup: z.enum(['sum', 'avg', 'last']),
+  /** Percent share inside the objective; see lib/domain/weights.ts. */
+  weight: z.number().finite().nullable().optional(),
   /** Who is responsible. Falls back to the objective owner when absent. */
   ownerUserId: z.string().min(1).nullable().default(null),
 })
@@ -72,4 +79,14 @@ export function titleHint(title: string): 'ok' | 'short' | 'empty' {
   const t = title.trim()
   if (t.length === 0) return 'empty'
   return t.length < 12 ? 'short' : 'ok'
+}
+
+/** The server's refusal for a weight problem, with the actual total where it matters. */
+export function weightProblemMessage(problem: WeightProblem, total: number): Bilingual {
+  if (problem === 'missing') return M.weightMissing
+  if (problem === 'partial') return M.weightPartial
+  if (problem === 'range') return M.weightRange
+  const tr = total.toLocaleString('tr-TR', { maximumFractionDigits: 2 })
+  const en = total.toLocaleString('en-US', { maximumFractionDigits: 2 })
+  return msg(`Ağırlıkların toplamı %${tr}, %100 olmalı.`, `Weights add up to ${en}%; they must add up to 100%.`)
 }

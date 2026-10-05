@@ -41,7 +41,7 @@ const validInput = (departmentId = 'satis') => ({
   departmentId,
   ownerUserId: null,
   periodCode: SEED_OBJECTIVE_PERIOD_CODE,
-  krs: [{ title: 'NPS skorunu 70e çıkar', start: 54, target: 70, unit: '', rollup: 'last' as const }],
+  krs: [{ title: 'NPS skorunu 70e çıkar', start: 54, target: 70, unit: '', rollup: 'last' as const, weight: 100 }],
 })
 
 test('rejects an objective with no title', async () => {
@@ -72,7 +72,7 @@ test('rejects more than five key results', async () => {
 test('rejects a key result whose start equals its target', async () => {
   const res = await createObjectiveFor(await seeded(), actor('admin', null), {
     ...validInput(),
-    krs: [{ title: 'Hiç ilerlemeyecek bir KR', start: 50, target: 50, unit: '', rollup: 'last' as const }],
+    krs: [{ title: 'Hiç ilerlemeyecek bir KR', start: 50, target: 50, unit: '', rollup: 'last' as const, weight: 100 }],
   })
   expect(res.ok).toBe(false)
   if (!res.ok) {
@@ -136,7 +136,7 @@ test('a new key result keeps the rollup rule it was created with', async () => {
   const db = await seeded()
   const res = await createObjectiveFor(db, actor('admin', null), {
     ...validInput('misafir'),
-    krs: [{ title: '750 yeni 5 yıldızlı yorum', start: 0, target: 750, unit: '', rollup: 'sum' }],
+    krs: [{ title: '750 yeni 5 yıldızlı yorum', start: 0, target: 750, unit: '', rollup: 'sum', weight: 100 }],
   })
   expect(res.ok).toBe(true)
   if (!res.ok) return
@@ -154,7 +154,7 @@ test('a key result without a rollup rule is refused — no silent default', asyn
   const res = await createObjectiveFor(await seeded(), actor('admin', null), {
     ...validInput(),
     // A caller that forgets the rule must fail loudly, as editing already does.
-    krs: [{ title: 'NPS skorunu 70e çıkar', start: 54, target: 70, unit: '' } as never],
+    krs: [{ title: 'NPS skorunu 70e çıkar', start: 54, target: 70, unit: '', weight: 100 } as never],
   })
   expect(res.ok).toBe(false)
 })
@@ -284,7 +284,7 @@ test('a rule change on a back-filled key result with no monthly rows keeps its c
     departmentId: 'pazarlama',
     ownerUserId: null,
     periodCode: SEED_CLOSED_PERIOD_CODE,
-    krs: [{ title: 'Zaten ulaşılmış hedef', start: 0, current: 5000, target: 10000, unit: '', rollup: 'last' as const }],
+    krs: [{ title: 'Zaten ulaşılmış hedef', start: 0, current: 5000, target: 10000, unit: '', rollup: 'last' as const, weight: 100 }],
   })
   expect(created.ok).toBe(true)
   if (!created.ok) return
@@ -324,7 +324,7 @@ test('editing `start` on a never-measured key result moves `current` with it', a
     departmentId: 'pazarlama',
     ownerUserId: null,
     periodCode: SEED_OBJECTIVE_PERIOD_CODE,
-    krs: [{ title: 'Ölçülmeyi bekleyen hedef', start: 0, target: 100, unit: '', rollup: 'last' as const }],
+    krs: [{ title: 'Ölçülmeyi bekleyen hedef', start: 0, target: 100, unit: '', rollup: 'last' as const, weight: 100 }],
   })
   expect(created.ok).toBe(true)
   if (!created.ok) return
@@ -359,7 +359,7 @@ test('editing `start` on a back-filled key result leaves its current alone — t
     departmentId: 'pazarlama',
     ownerUserId: null,
     periodCode: SEED_CLOSED_PERIOD_CODE,
-    krs: [{ title: 'Zaten ulaşılmış başka bir hedef', start: 0, current: 5000, target: 10000, unit: '', rollup: 'last' as const }],
+    krs: [{ title: 'Zaten ulaşılmış başka bir hedef', start: 0, current: 5000, target: 10000, unit: '', rollup: 'last' as const, weight: 100 }],
   })
   expect(created.ok).toBe(true)
   if (!created.ok) return
@@ -614,8 +614,8 @@ test('a created objective and its key results take the assigned owners', async (
     ownerUserId: 'u-kagan.ozturk',
     periodCode: SEED_OBJECTIVE_PERIOD_CODE,
     krs: [
-      { title: 'NPS skorunu 70e çıkar', start: 54, target: 70, unit: '', ownerUserId: 'u-oguzhan.kizilcan', rollup: 'last' as const },
-      { title: 'Şikayet süresini 24 saate indir', start: 72, target: 24, unit: 'saat', ownerUserId: null, rollup: 'last' as const },
+      { title: 'NPS skorunu 70e çıkar', start: 54, target: 70, unit: '', ownerUserId: 'u-oguzhan.kizilcan', rollup: 'last' as const, weight: 60 },
+      { title: 'Şikayet süresini 24 saate indir', start: 72, target: 24, unit: 'saat', ownerUserId: null, rollup: 'last' as const, weight: 40 },
     ],
   })
   expect(res.ok).toBe(true)
@@ -693,7 +693,7 @@ test('a closed period still accepts objectives, so history can be entered', asyn
     departmentId: 'pazarlama',
     ownerUserId: 'u-oguzhan.kizilcan',
     periodCode: SEED_CLOSED_PERIOD_CODE,
-    krs: [{ title: 'Lead maliyetini 800e indir', start: 1000, current: 820, target: 800, unit: '₺', rollup: 'last' as const }],
+    krs: [{ title: 'Lead maliyetini 800e indir', start: 1000, current: 820, target: 800, unit: '₺', rollup: 'last' as const, weight: 100 }],
   })
   expect(res.ok).toBe(true)
   if (!res.ok) return
@@ -710,8 +710,8 @@ test('a key result can be created with the figure already achieved', async () =>
     ownerUserId: null,
     periodCode: SEED_CLOSED_PERIOD_CODE,
     krs: [
-      { title: 'Hedefe ulaşan KR', start: 0, current: 100, target: 100, unit: '%', rollup: 'last' as const },
-      { title: 'Güncel verilmeyen KR', start: 10, target: 50, unit: '', rollup: 'last' as const },
+      { title: 'Hedefe ulaşan KR', start: 0, current: 100, target: 100, unit: '%', rollup: 'last' as const, weight: 50 },
+      { title: 'Güncel verilmeyen KR', start: 10, target: 50, unit: '', rollup: 'last' as const, weight: 50 },
     ],
   })
   expect(res.ok).toBe(true)
@@ -736,7 +736,7 @@ test('a past period reports its own progress, independent of the open quarter', 
     departmentId: 'pazarlama',
     ownerUserId: null,
     periodCode: SEED_CLOSED_PERIOD_CODE,
-    krs: [{ title: 'Tamamlanmış KR', start: 0, current: 100, target: 100, unit: '%', rollup: 'last' as const }],
+    krs: [{ title: 'Tamamlanmış KR', start: 0, current: 100, target: 100, unit: '%', rollup: 'last' as const, weight: 100 }],
   })
 
   const q1 = await getDepartment(db, 'pazarlama', await idsOf(db, SEED_CLOSED_PERIOD_CODE))
@@ -747,4 +747,68 @@ test('a past period reports its own progress, independent of the open quarter', 
   // is what makes historical entry safe. Pazarlama's open-year figure is 0%:
   // nothing has been measured there yet.
   expect(openQ?.pct).toBe(0)
+})
+
+test('a new objective needs a weight on every key result, adding up to 100', async () => {
+  const db = await seeded()
+  const two = (a: number | null, b: number | null) => ({
+    ...validInput(),
+    krs: [
+      { title: 'NPS skorunu 70e çıkar', start: 54, target: 70, unit: '', rollup: 'last' as const, weight: a },
+      { title: 'Şikâyetleri yarıya indir', start: 40, target: 20, unit: '', rollup: 'last' as const, weight: b },
+    ],
+  })
+  const none = await createObjectiveFor(db, actor('admin', null), two(null, null))
+  expect(none.ok).toBe(false)
+  const partial = await createObjectiveFor(db, actor('admin', null), two(100, null))
+  expect(partial.ok).toBe(false)
+  const off = await createObjectiveFor(db, actor('admin', null), two(60, 30))
+  expect(off.ok).toBe(false)
+  if (!off.ok) {
+    expect(off.error.tr).toContain('%90')
+    expect(off.error.en).toContain('90%')
+  }
+  const good = await createObjectiveFor(db, actor('admin', null), two(60, 40))
+  expect(good.ok).toBe(true)
+  if (good.ok) {
+    const rows = await db.select().from(keyResults).where(eq(keyResults.objectiveId, good.data.id))
+    expect(rows.map((r) => r.weight).sort()).toEqual([40, 60])
+  }
+})
+
+test('editing: an unweighted objective stays saveable; a weighted one must still add up after removing a key result', async () => {
+  const db = await seeded()
+  const created = await createObjectiveFor(db, actor('admin', null), {
+    ...validInput(),
+    krs: [
+      { title: 'NPS skorunu 70e çıkar', start: 54, target: 70, unit: '', rollup: 'last' as const, weight: 50 },
+      { title: 'Şikâyetleri yarıya indir', start: 40, target: 20, unit: '', rollup: 'last' as const, weight: 50 },
+    ],
+  })
+  if (!created.ok) throw new Error(created.error.tr)
+  const rows = await db.select().from(keyResults).where(eq(keyResults.objectiveId, created.data.id))
+  const base = (k: (typeof rows)[number], weight: number | null) => ({
+    id: k.id, title: k.titleTr, start: k.start, target: k.target, unit: k.unit,
+    confidence: k.confidence, rollup: k.rollup, ownerUserId: k.ownerUserId, weight,
+  })
+
+  // Dropping one key result leaves 50 → refused.
+  const dropped = await updateObjectiveFor(db, actor('admin', null), {
+    id: created.data.id, title: 'Yeni başlık', ownerUserId: null, krs: [base(rows[0]!, 50)],
+  })
+  expect(dropped.ok).toBe(false)
+
+  // Re-weighted to 100 → accepted.
+  const reweighted = await updateObjectiveFor(db, actor('admin', null), {
+    id: created.data.id, title: 'Yeni başlık', ownerUserId: null, krs: [base(rows[0]!, 100)],
+  })
+  expect(reweighted.ok).toBe(true)
+
+  // Clearing every weight is allowed when editing (back to unweighted).
+  const cleared = await updateObjectiveFor(db, actor('admin', null), {
+    id: created.data.id, title: 'Yeni başlık', ownerUserId: null, krs: [base(rows[0]!, null)],
+  })
+  expect(cleared.ok).toBe(true)
+  const [after] = await db.select().from(keyResults).where(eq(keyResults.id, rows[0]!.id))
+  expect(after!.weight).toBeNull()
 })
