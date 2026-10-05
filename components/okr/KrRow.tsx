@@ -1,7 +1,7 @@
 'use client'
 
 import { ProgressBar } from '@/components/ui/ProgressBar'
-import { formatMonth, formatValue, isBeforeCutoff } from '@/lib/domain/format'
+import { formatMonth, formatWeight, formatValue, isBeforeCutoff } from '@/lib/domain/format'
 import { isMeasurable } from '@/lib/domain/progress'
 import { STATUS_VARS } from '@/lib/domain/status'
 import type { Confidence } from '@/lib/domain/types'
@@ -29,6 +29,7 @@ export function KrRow({ kr, asOfMonth }: { kr: KrVm; asOfMonth: string }) {
     <tr className={`${styles.row} ${compact ? styles.rowCompact : ''}`}>
       <td className={styles.krTitle} title={title}>
         {title}
+        {kr.weight != null ? <span className={styles.weight}>{formatWeight(kr.weight, lang)}</span> : null}
       </td>
       <td className={styles.num}>{formatValue(kr.start, kr.unit, lang)}</td>
       <td className={styles.numStrong}>

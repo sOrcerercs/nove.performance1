@@ -31,6 +31,12 @@ export function formatPrecise(n: number | null | undefined, lang: Lang): string 
 }
 
 /** formatValue with formatPrecise's number. */
+/** A KR weight as a percentage: TR "%40", EN "40%" (up to two decimals). */
+export function formatWeight(n: number, lang: Lang): string {
+  const s = formatPrecise(n, lang)
+  return lang === 'en' ? `${s}%` : `%${s}`
+}
+
 export function formatValuePrecise(n: number, unit: string, lang: Lang): string {
   const num = formatPrecise(n, lang)
   if (!unit) return num

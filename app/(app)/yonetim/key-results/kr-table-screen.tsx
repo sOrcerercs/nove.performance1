@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import { formatMonthLong, formatPrecise, formatValuePrecise } from '@/lib/domain/format'
+import { formatMonthLong, formatPrecise, formatValuePrecise, formatWeight } from '@/lib/domain/format'
 import { fill, tx } from '@/lib/i18n/strings'
 import { usePrefs } from '@/lib/prefs/PrefsProvider'
 import type { KrTableVm } from '@/lib/queries/kr-table'
@@ -63,7 +63,10 @@ export function KrTableScreen({ vm, canEnter }: { vm: KrTableVm; canEnter: boole
                       aria-current={active ? 'true' : undefined}
                     >
                       <span className={styles.krCode}>{k.objectiveCode}</span>
-                      <span>{tx({ tr: k.titleTr, en: k.titleEn }, lang)}</span>
+                      <span>
+                        {tx({ tr: k.titleTr, en: k.titleEn }, lang)}
+                        {k.weight != null ? <span className={styles.krWeight}>{formatWeight(k.weight, lang)}</span> : null}
+                      </span>
                     </Link>
                   )
                 })}

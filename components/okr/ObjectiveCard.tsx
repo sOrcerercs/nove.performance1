@@ -63,6 +63,9 @@ export function ObjectiveCard({
             <span>
               {objective.ownerName} · {objective.krs.length} KR
             </span>
+            {objective.krs.length > 0 && objective.krs.every((k) => k.weight == null) ? (
+              <span className={styles.note}>· {t('weightNotSet')}</span>
+            ) : null}
           </div>
         </div>
 
