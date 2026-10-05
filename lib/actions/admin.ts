@@ -29,7 +29,9 @@ import {
   setUserPasswordAs,
   setUserRoleAs,
   setUserStateAs,
+  updateUserFieldsAs,
   type CreateUserInput,
+  type UpdateUserFieldsInput,
 } from './core/users'
 import type { ActionResult } from './types'
 
@@ -45,6 +47,14 @@ export async function createUser(input: CreateUserInput): Promise<ActionResult<{
   const user = await requireUser()
   const db = await getDb()
   const result = await createUserAs(db, user, input)
+  if (result.ok) revalidatePath('/yonetim')
+  return result
+}
+
+export async function updateUserFields(input: UpdateUserFieldsInput): Promise<ActionResult<{ id: string }>> {
+  const user = await requireUser()
+  const db = await getDb()
+  const result = await updateUserFieldsAs(db, user, input)
   if (result.ok) revalidatePath('/yonetim')
   return result
 }

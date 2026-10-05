@@ -4,7 +4,8 @@ import { and, count, eq, ne } from 'drizzle-orm'
 import { z } from 'zod'
 import { can, type SessionUser } from '@/lib/auth/permissions'
 import type { Db } from '@/lib/db'
-import { checkins, keyResults, objectives, users } from '@/lib/db/schema'
+import { wouldCreateCycle } from '@/lib/auth/hierarchy'
+import { checkins, departments, keyResults, objectives, users } from '@/lib/db/schema'
 import { canSignIn, type Role } from '@/lib/domain/types'
 import { fail, FORBIDDEN, fromIssue, msg, ok, type ActionResult } from '../types'
 
@@ -16,6 +17,8 @@ const M = {
   passwordShort: msg('Parola en az 12 karakter olmalı.', 'Password must be at least 12 characters.'),
   passwordLong: msg('Parola çok uzun.', 'Password is too long.'),
   passwordRequired: msg('Parola gerekli.', 'Password is required.'),
+  emailRequired: msg('Giriş yapabilen hesaplar için e-posta gerekli.', 'Accounts that can sign in need an email.'),
+  titleLong: msg('Unvan çok uzun.', 'Title is too long.'),
 }
 
 /* ------------------------------------------------------------------ *
@@ -54,14 +57,20 @@ const BCRYPT_ROUNDS = 10
 export const createUserSchema = z
   .object({
     name: nameSchema,
-    email: emailSchema,
+    /** Optional: the HR list has none. Staff without one simply cannot sign in. */
+    email: emailSchema.nullable().optional().transform((v) => v ?? null),
     role: roleSchema,
     departmentId: z.string().min(1).nullable().default(null),
+    title: z.string().trim().max(120, M.titleLong.tr).nullable().optional().transform((v) => (v ? v : null)),
     /** Required for accounts, forbidden for staff. */
     password: z.string().optional(),
   })
   .superRefine((v, ctx) => {
     if (canSignIn(v.role)) {
+      if (!v.email) {
+        ctx.addIssue({ code: 'custom', path: ['email'], message: M.emailRequired.tr })
+        return
+      }
       const parsed = passwordSchema.safeParse(v.password ?? '')
       if (!parsed.success) {
         ctx.addIssue({
@@ -95,8 +104,10 @@ export async function createUserAs(
   if (!parsed.success) return fail(fromIssue(parsed.error.issues[0]?.message, M))
   const data = parsed.data
 
-  const [existing] = await db.select().from(users).where(eq(users.email, data.email)).limit(1)
-  if (existing) return fail(msg('Bu e-posta zaten kayıtlı.', 'This email is already registered.'))
+  if (data.email) {
+    const [existing] = await db.select().from(users).where(eq(users.email, data.email)).limit(1)
+    if (existing) return fail(msg('Bu e-posta zaten kayıtlı.', 'This email is already registered.'))
+  }
 
   const id = `u-${randomUUID()}`
   await db.insert(users).values({
@@ -105,6 +116,7 @@ export async function createUserAs(
     email: data.email,
     role: data.role,
     departmentId: data.departmentId,
+    title: data.title,
     // Staff are personnel records: no credential, and no login state to be in.
     passwordHash: canSignIn(data.role)
       ? await bcrypt.hash(data.password as string, BCRYPT_ROUNDS)
@@ -178,6 +190,22 @@ export async function setUserStateAs(
     return fail(msg('Son aktif yönetici pasifleştirilemez.', "The last active admin can't be deactivated."))
   }
 
+  if (state === 'passive') {
+    const [reports] = await db
+      .select({ n: count() })
+      .from(users)
+      .where(and(eq(users.managerId, userId), eq(users.state, 'active')))
+    const n = Number(reports?.n ?? 0)
+    if (n > 0) {
+      return fail(
+        msg(
+          `Bu kişiye bağlı ${n} aktif çalışan var, önce yeni yöneticilerini seçin.`,
+          `${n} active ${n === 1 ? 'person reports' : 'people report'} to this person. Choose their new manager first.`,
+        ),
+      )
+    }
+  }
+
   await db.update(users).set({ state }).where(eq(users.id, userId))
   return ok({ id: userId })
 }
@@ -202,6 +230,16 @@ export async function deleteUserAs(
 
   if (target.role === 'admin' && (await otherActiveAdmins(db, input.userId)) === 0) {
     return fail(msg('Son yönetici hesabı silinemez.', "The last admin account can't be deleted."))
+  }
+
+  const [reports] = await db.select({ n: count() }).from(users).where(eq(users.managerId, input.userId))
+  if (Number(reports?.n ?? 0) > 0) {
+    return fail(
+      msg(
+        'Bu kişiye bağlı çalışanlar var. Önce yeni yöneticilerini seçin.',
+        'People report to this person. Choose their new manager first.',
+      ),
+    )
   }
 
   const [krs, objs, chks] = await Promise.all([
@@ -253,6 +291,81 @@ export async function setUserPasswordAs(
     .where(eq(users.id, parsed.data.userId))
 
   return ok({ id: parsed.data.userId })
+}
+
+export interface UpdateUserFieldsInput {
+  userId: string
+  departmentId?: string | null
+  managerId?: string | null
+  title?: string | null
+}
+
+const updateUserFieldsSchema = z.object({
+  userId: z.string().min(1),
+  departmentId: z.string().min(1).nullable().optional(),
+  managerId: z.string().min(1).nullable().optional(),
+  title: z.string().trim().max(120, M.titleLong.tr).nullable().optional(),
+})
+
+/**
+ * The Kullanıcılar table's inline edits — one field at a time in practice, but
+ * any subset is accepted. Absent fields are left alone; null clears.
+ */
+export async function updateUserFieldsAs(
+  db: Db,
+  actor: SessionUser,
+  input: UpdateUserFieldsInput,
+): Promise<ActionResult<{ id: string }>> {
+  if (!can(actor, 'manage:users')) return fail(FORBIDDEN)
+
+  const parsed = updateUserFieldsSchema.safeParse(input)
+  if (!parsed.success) return fail(fromIssue(parsed.error.issues[0]?.message, M))
+  const data = parsed.data
+
+  const [target] = await db.select().from(users).where(eq(users.id, data.userId)).limit(1)
+  if (!target) return fail(msg('Kullanıcı bulunamadı.', 'User not found.'))
+
+  const patch: Partial<typeof users.$inferInsert> = {}
+
+  if (data.departmentId !== undefined) {
+    if (data.departmentId !== null) {
+      const [dept] = await db
+        .select({ id: departments.id })
+        .from(departments)
+        .where(eq(departments.id, data.departmentId))
+        .limit(1)
+      if (!dept) return fail(msg('Bölüm bulunamadı.', 'Department not found.'))
+    }
+    patch.departmentId = data.departmentId
+  }
+
+  if (data.managerId !== undefined) {
+    if (data.managerId !== null) {
+      const all = await db
+        .select({ id: users.id, managerId: users.managerId, state: users.state })
+        .from(users)
+      const manager = all.find((u) => u.id === data.managerId)
+      if (!manager || manager.state !== 'active') {
+        return fail(msg('Yönetici bulunamadı ya da pasif.', 'Manager not found or inactive.'))
+      }
+      if (wouldCreateCycle(target.id, data.managerId, all)) {
+        return fail(
+          msg(
+            'Bu atama döngü oluşturur: kişi kendine ya da kendi ekibindeki birine bağlanamaz.',
+            'This would create a loop: a person cannot report to themselves or to someone in their own team.',
+          ),
+        )
+      }
+    }
+    patch.managerId = data.managerId
+  }
+
+  if (data.title !== undefined) patch.title = data.title ? data.title : null
+
+  if (Object.keys(patch).length > 0) {
+    await db.update(users).set(patch).where(eq(users.id, target.id))
+  }
+  return ok({ id: target.id })
 }
 
 /**
