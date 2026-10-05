@@ -11,7 +11,7 @@ import type { KrLike } from './types'
  *
  * Clamped to [0, 140]: 0 so that moving away from the target reads as "not
  * started" rather than a negative bar, and 140 so a wildly overshot key result
- * cannot dominate the unweighted averages above it.
+ * cannot dominate the averages above it.
  */
 export function krPct(kr: KrLike): number {
   const span = kr.target - kr.start
@@ -36,9 +36,19 @@ export function isMeasurable(kr: KrLike): boolean {
 const mean = (xs: number[]): number =>
   xs.length === 0 ? 0 : Math.round(xs.reduce((a, x) => a + x, 0) / xs.length)
 
-/** Unweighted mean of the key results whose progress can be measured. */
+/**
+ * Mean of the key results whose progress can be measured — weighted when every
+ * one of them carries a weight, re-proportioned among those measurable so an
+ * unmeasurable key result does not pull the objective towards 0. Otherwise the
+ * plain mean, which is what every objective created before weights gets.
+ */
 export function objPct(krs: KrLike[]): number {
-  return mean(krs.filter(isMeasurable).map(krPct))
+  const measurable = krs.filter(isMeasurable)
+  const weighted =
+    measurable.length > 0 && measurable.every((k) => typeof k.weight === 'number' && k.weight > 0)
+  if (!weighted) return mean(measurable.map(krPct))
+  const total = measurable.reduce((a, k) => a + (k.weight as number), 0)
+  return Math.round(measurable.reduce((a, k) => a + krPct(k) * (k.weight as number), 0) / total)
 }
 
 /** An objective contributes a percentage only if some key result can be measured. */
