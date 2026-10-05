@@ -69,6 +69,7 @@ const OBJ: ObjectiveDetailVm = {
       unit: '',
       confidence: 'mid',
       rollup: 'sum',
+      weight: null,
       ownerName: '',
       pct: 20,
       daysSinceUpdate: 0,

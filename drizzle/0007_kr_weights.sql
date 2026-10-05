@@ -1,0 +1,1 @@
+ALTER TABLE "key_results" ADD COLUMN "weight" double precision;

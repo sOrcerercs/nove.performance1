@@ -31,6 +31,7 @@ const BASE: KrVm = {
   unit: '',
   confidence: 'high',
   rollup: 'last',
+  weight: null,
   ownerName: 'Test Owner',
   pct: 0,
   daysSinceUpdate: 0,

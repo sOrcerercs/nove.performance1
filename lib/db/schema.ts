@@ -111,6 +111,12 @@ export const keyResults = pgTable('key_results', {
    * now, read by the monthly breakdown — see the Faz 2 design.
    */
   rollup: rollupEnum('rollup').notNull().default('last'),
+  /**
+   * Share of the objective's progress, in percent (0 < w ≤ 100). Either every
+   * key result of an objective has one and they add up to 100, or none does
+   * and the objective averages its key results equally (see weights.ts).
+   */
+  weight: doublePrecision('weight'),
   ownerUserId: text('owner_user_id').references(() => users.id),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 })

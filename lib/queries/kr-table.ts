@@ -17,6 +17,7 @@ export interface KrTableListItem {
   titleEn: string
   objectiveCode: string
   periodCode: string
+  weight: number | null
 }
 
 export interface KrTableDept {
@@ -65,6 +66,7 @@ export async function getKrTableVm(
       target: keyResults.target,
       current: keyResults.current,
       rule: keyResults.rollup,
+      weight: keyResults.weight,
       objectiveCode: objectives.code,
       objectiveTitleTr: objectives.titleTr,
       objectiveTitleEn: objectives.titleEn,
@@ -96,6 +98,7 @@ export async function getKrTableVm(
       titleEn: k.titleEn,
       objectiveCode: k.objectiveCode,
       periodCode: k.periodCode,
+      weight: k.weight,
     })
   }
 
