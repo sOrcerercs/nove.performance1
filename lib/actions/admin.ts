@@ -26,11 +26,12 @@ import {
   changeOwnPasswordAs,
   createUserAs,
   deleteUserAs,
-  setUserPasswordAs,
   setUserRoleAs,
   setUserStateAs,
+  updateUserAccountAs,
   updateUserFieldsAs,
   type CreateUserInput,
+  type UpdateUserAccountInput,
   type UpdateUserFieldsInput,
 } from './core/users'
 import type { ActionResult } from './types'
@@ -91,13 +92,12 @@ export async function deleteUser(input: {
   return result
 }
 
-export async function setUserPassword(input: {
-  userId: string
-  password: string
-}): Promise<ActionResult<{ id: string }>> {
+export async function updateUserAccount(
+  input: UpdateUserAccountInput,
+): Promise<ActionResult<{ id: string; tempPassword: string | null }>> {
   const user = await requireUser()
   const db = await getDb()
-  const result = await setUserPasswordAs(db, user, input)
+  const result = await updateUserAccountAs(db, user, input)
   if (result.ok) revalidatePath('/yonetim')
   return result
 }

@@ -8,7 +8,6 @@ import {
   createPeriod,
   createUser,
   deleteUser,
-  setUserPassword,
   setDefaultRangeStart,
   setPeriodState,
   updatePeriodDates,
@@ -65,10 +64,6 @@ export function AdminTables({
   const [pCode, setPCode] = useState('')
   const [pStart, setPStart] = useState('')
   const [pEnd, setPEnd] = useState('')
-
-  // Password reset — which row is open
-  const [resetFor, setResetFor] = useState<string | null>(null)
-  const [resetPassword, setResetPassword] = useState('')
 
   // Period date edit — which row is open, and its draft
   const [dateFor, setDateFor] = useState<string | null>(null)
@@ -138,14 +133,6 @@ export function AdminTables({
       () => setDefaultRangeStart({ startsOn: rangeStart }),
       t('toastRangeStartUpdated'),
     )
-  }
-
-  async function onResetPassword(userId: string) {
-    const ok = await run(
-      () => setUserPassword({ userId, password: resetPassword }),
-      t('toastPasswordUpdated'),
-    )
-    if (ok) { setResetFor(null); setResetPassword('') }
   }
 
   return (
@@ -326,18 +313,6 @@ export function AdminTables({
 
                   <td className={styles.td}>
                     <div className={styles.actions}>
-                      {canSignIn(u.role) ? (
-                        <button
-                          type="button" className={styles.linkBtn} disabled={pending}
-                          onClick={() => {
-                            setResetFor(resetFor === u.id ? null : u.id)
-                            setResetPassword('')
-                          }}
-                        >
-                          {t('password')}
-                        </button>
-                      ) : null}
-
                       {!isSelf ? (
                         <button
                           type="button" className={styles.linkBtn} disabled={pending}
@@ -361,25 +336,6 @@ export function AdminTables({
                         </button>
                       ) : null}
                     </div>
-
-                    {resetFor === u.id ? (
-                      <div className={styles.resetRow}>
-                        <input
-                          className={styles.input} type="password" autoComplete="new-password"
-                          placeholder={t('newPasswordMinPh')}
-                          aria-label={`${u.name} ${t('newPassword').toLowerCase()}`}
-                          value={resetPassword}
-                          onChange={(e) => setResetPassword(e.target.value)}
-                        />
-                        <button
-                          type="button" className={styles.primary}
-                          disabled={pending || resetPassword.length < 12}
-                          onClick={() => onResetPassword(u.id)}
-                        >
-                          {t('saveBtn')}
-                        </button>
-                      </div>
-                    ) : null}
                   </td>
                 </tr>
               )

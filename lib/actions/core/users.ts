@@ -3,10 +3,11 @@ import bcrypt from 'bcryptjs'
 import { and, count, eq, ne } from 'drizzle-orm'
 import { z } from 'zod'
 import { can, type SessionUser } from '@/lib/auth/permissions'
+import { generateTempPassword } from '@/lib/auth/temp-password'
 import type { Db } from '@/lib/db'
 import { wouldCreateCycle } from '@/lib/auth/hierarchy'
 import { checkins, departments, keyResults, objectives, users } from '@/lib/db/schema'
-import { canSignIn, type Role } from '@/lib/domain/types'
+import { canSignIn, type Bilingual, type Role } from '@/lib/domain/types'
 import { fail, FORBIDDEN, fromIssue, msg, ok, type ActionResult } from '../types'
 
 /** Validation messages; the schemas carry `.tr`, `fromIssue` maps it back. */
@@ -19,6 +20,11 @@ const M = {
   passwordRequired: msg('Parola gerekli.', 'Password is required.'),
   emailRequired: msg('Giriş yapabilen hesaplar için e-posta gerekli.', 'Accounts that can sign in need an email.'),
   titleLong: msg('Unvan çok uzun.', 'Title is too long.'),
+  emailTaken: msg('Bu e-posta zaten kayıtlı.', 'This email is already registered.'),
+  staffNoPassword: msg('Personel kayıtlarının parolası olmaz. Önce rolünü değiştir.', "Staff records don't have a password. Change the role first."),
+  tempPasswordNeeded: msg('Bu kişinin giriş yapabilmesi için geçici şifre üretilmeli.', 'Generate a temporary password so this person can sign in.'),
+  ownPasswordElsewhere: msg("Kendi şifreni Hesabım'dan değiştir.", 'Change your own password from My Account.'),
+  userNotFound: msg('Kullanıcı bulunamadı.', 'User not found.'),
 }
 
 /* ------------------------------------------------------------------ *
@@ -93,6 +99,26 @@ async function otherActiveAdmins(db: Db, excludingUserId: string): Promise<numbe
   return Number(row?.n ?? 0)
 }
 
+/**
+ * Why changing `target` to `role` is not allowed, or null. Shared by the row's
+ * role menu and the Düzenle panel so the two cannot drift apart.
+ */
+async function roleChangeProblem(
+  db: Db,
+  actor: SessionUser,
+  target: { id: string; role: Role },
+  role: Role,
+): Promise<Bilingual | null> {
+  // Demoting the last admin would lock everyone out of user management.
+  if (target.role === 'admin' && role !== 'admin' && (await otherActiveAdmins(db, target.id)) === 0) {
+    return msg('Son yönetici hesabının rolü değiştirilemez.', "The last admin account's role can't be changed.")
+  }
+  if (target.id === actor.id && role !== 'admin') {
+    return msg('Kendi yönetici yetkini kaldıramazsın.', "You can't remove your own admin role.")
+  }
+  return null
+}
+
 export async function createUserAs(
   db: Db,
   actor: SessionUser,
@@ -106,7 +132,7 @@ export async function createUserAs(
 
   if (data.email) {
     const [existing] = await db.select().from(users).where(eq(users.email, data.email)).limit(1)
-    if (existing) return fail(msg('Bu e-posta zaten kayıtlı.', 'This email is already registered.'))
+    if (existing) return fail(M.emailTaken)
   }
 
   const id = `u-${randomUUID()}`
@@ -141,13 +167,8 @@ export async function setUserRoleAs(
   const [target] = await db.select().from(users).where(eq(users.id, userId)).limit(1)
   if (!target) return fail(msg('Kullanıcı bulunamadı.', 'User not found.'))
 
-  // Demoting the last admin would lock everyone out of user management.
-  if (target.role === 'admin' && role !== 'admin' && (await otherActiveAdmins(db, userId)) === 0) {
-    return fail(msg('Son yönetici hesabının rolü değiştirilemez.', "The last admin account's role can't be changed."))
-  }
-  if (target.id === actor.id && role !== 'admin') {
-    return fail(msg('Kendi yönetici yetkini kaldıramazsın.', "You can't remove your own admin role."))
-  }
+  const problem = await roleChangeProblem(db, actor, target, role)
+  if (problem) return fail(problem)
 
   await db
     .update(users)
@@ -263,34 +284,87 @@ export async function deleteUserAs(
   return ok({ id: input.userId })
 }
 
-/** An admin sets someone else's password — the reset path, since there is no email. */
-export async function setUserPasswordAs(
+export interface UpdateUserAccountInput {
+  userId: string
+  /** Blank or null clears it; a sign-in role cannot be left without one. */
+  email: string | null
+  role: Role
+  /** Generate a one-time password and make the person replace it at sign-in. */
+  issueTempPassword: boolean
+}
+
+const updateUserAccountSchema = z.object({
+  userId: z.string().min(1),
+  email: z.preprocess(
+    (v) => (typeof v === 'string' && v.trim() === '' ? null : v),
+    emailSchema.nullable(),
+  ),
+  role: roleSchema,
+  issueTempPassword: z.boolean(),
+})
+
+/**
+ * The Düzenle panel: email, role and — optionally — a temporary password.
+ *
+ * The temporary password is returned once, in this result, and nowhere else:
+ * it is not logged and only its hash is stored. Every check runs before the
+ * single UPDATE, so a refusal leaves the row exactly as it was.
+ */
+export async function updateUserAccountAs(
   db: Db,
   actor: SessionUser,
-  input: { userId: string; password: string },
-): Promise<ActionResult<{ id: string }>> {
+  input: UpdateUserAccountInput,
+): Promise<ActionResult<{ id: string; tempPassword: string | null }>> {
   if (!can(actor, 'manage:users')) return fail(FORBIDDEN)
 
-  const parsed = z
-    .object({ userId: z.string().min(1), password: passwordSchema })
-    .safeParse(input)
+  const parsed = updateUserAccountSchema.safeParse(input)
   if (!parsed.success) return fail(fromIssue(parsed.error.issues[0]?.message, M))
+  const { userId, email, role, issueTempPassword } = parsed.data
 
-  const [target] = await db.select().from(users).where(eq(users.id, parsed.data.userId)).limit(1)
-  if (!target) return fail(msg('Kullanıcı bulunamadı.', 'User not found.'))
-  if (!canSignIn(target.role)) {
-    return fail(msg('Personel kayıtlarının parolası olmaz. Önce rolünü değiştir.', "Staff records don't have a password. Change the role first."))
+  const [target] = await db.select().from(users).where(eq(users.id, userId)).limit(1)
+  if (!target) return fail(M.userNotFound)
+
+  if (email && email !== target.email) {
+    const [taken] = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(and(eq(users.email, email), ne(users.id, userId)))
+      .limit(1)
+    if (taken) return fail(M.emailTaken)
   }
+
+  if (role !== target.role) {
+    const problem = await roleChangeProblem(db, actor, target, role)
+    if (problem) return fail(problem)
+  }
+
+  if (canSignIn(role) && !email) return fail(M.emailRequired)
+  if (!canSignIn(role) && issueTempPassword) return fail(M.staffNoPassword)
+  // Issuing yourself a temporary password would lock you into the change screen.
+  if (issueTempPassword && userId === actor.id) return fail(M.ownPasswordElsewhere)
+  if (canSignIn(role) && !target.passwordHash && !issueTempPassword) return fail(M.tempPasswordNeeded)
+
+  const tempPassword = issueTempPassword ? generateTempPassword() : null
 
   await db
     .update(users)
     .set({
-      passwordHash: await bcrypt.hash(parsed.data.password, BCRYPT_ROUNDS),
-      state: 'active',
+      email,
+      role,
+      // Demoting to staff revokes the credential and anything pending on it, so
+      // a later promotion cannot revive an old password.
+      ...(canSignIn(role) ? {} : { passwordHash: null, mustChangePassword: false }),
+      ...(tempPassword
+        ? {
+            passwordHash: await bcrypt.hash(tempPassword, BCRYPT_ROUNDS),
+            mustChangePassword: true,
+            state: 'active' as const,
+          }
+        : {}),
     })
-    .where(eq(users.id, parsed.data.userId))
+    .where(eq(users.id, userId))
 
-  return ok({ id: parsed.data.userId })
+  return ok({ id: userId, tempPassword })
 }
 
 export interface UpdateUserFieldsInput {
@@ -396,7 +470,11 @@ export async function changeOwnPasswordAs(
 
   await db
     .update(users)
-    .set({ passwordHash: await bcrypt.hash(parsed.data.newPassword, BCRYPT_ROUNDS) })
+    .set({
+      passwordHash: await bcrypt.hash(parsed.data.newPassword, BCRYPT_ROUNDS),
+      // Choosing your own password is what a temporary one was waiting for.
+      mustChangePassword: false,
+    })
     .where(eq(users.id, actor.id))
 
   return ok({ id: actor.id })

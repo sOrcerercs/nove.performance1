@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm'
 import { expect, test } from 'vitest'
 import type { SessionUser } from '@/lib/auth/permissions'
 import { createTestDb } from '@/lib/db'
+import type { Db } from '@/lib/db'
 import { keyResults, users } from '@/lib/db/schema'
 import { seed } from '@/lib/db/seed'
 import type { Role } from '@/lib/domain/types'
@@ -10,9 +11,9 @@ import {
   changeOwnPasswordAs,
   createUserAs,
   deleteUserAs,
-  setUserPasswordAs,
   setUserRoleAs,
   setUserStateAs,
+  updateUserAccountAs,
   updateUserFieldsAs,
 } from '../core/users'
 import { FORBIDDEN } from '../types'
@@ -232,31 +233,179 @@ test('you cannot delete yourself', async () => {
 
 /* ------------------------------- passwords ------------------------------ */
 
-test('an admin resets another account password', async () => {
+/* ------------------------------- Düzenle -------------------------------- */
+
+const EDITOR_ADMIN_EMAIL = async (db: Db, id: string) =>
+  (await db.select().from(users).where(eq(users.id, id)))[0]!.email
+
+async function staffPerson(db: Db) {
+  const res = await createUserAs(db, actor('admin'), {
+    name: 'Ayşe Personel', email: null, role: 'staff', departmentId: null,
+  })
+  if (!res.ok) throw new Error('setup: staff record')
+  return res.data.id
+}
+
+test('Düzenle turns a staff record into an account with a one-time temporary password', async () => {
   const db = await seeded()
-  const res = await setUserPasswordAs(db, actor('admin'), {
-    userId: OTHER_ADMIN_ID, password: NEW_PASSWORD,
+  const id = await staffPerson(db)
+  const res = await updateUserAccountAs(db, actor('admin'), {
+    userId: id, email: ' Ayse@Nove.Group ', role: 'executive', issueTempPassword: true,
   })
   expect(res.ok).toBe(true)
+  if (!res.ok) return
+  const temp = res.data.tempPassword
+  expect(temp).toHaveLength(16)
 
-  const [row] = await db.select().from(users).where(eq(users.id, OTHER_ADMIN_ID))
-  expect(await bcrypt.compare(NEW_PASSWORD, row?.passwordHash ?? '')).toBe(true)
+  const [row] = await db.select().from(users).where(eq(users.id, id))
+  expect(row!.email).toBe('ayse@nove.group')
+  expect(row!.role).toBe('executive')
+  expect(row!.mustChangePassword).toBe(true)
+  expect(row!.state).toBe('active')
+  expect(row!.passwordHash).not.toBe(temp)
+  expect(await bcrypt.compare(temp!, row!.passwordHash!)).toBe(true)
+})
+
+test('a sign-in role needs an email', async () => {
+  const db = await seeded()
+  const id = await staffPerson(db)
+  const res = await updateUserAccountAs(db, actor('admin'), {
+    userId: id, email: '  ', role: 'executive', issueTempPassword: true,
+  })
+  expect(res.ok).toBe(false)
+  if (res.ok) return
+  expect(res.error.tr).toBe('Giriş yapabilen hesaplar için e-posta gerekli.')
+  const [row] = await db.select().from(users).where(eq(users.id, id))
+  expect(row!.role).toBe('staff')
+})
+
+test('a sign-in role with no password yet must be given a temporary one', async () => {
+  const db = await seeded()
+  const id = await staffPerson(db)
+  const res = await updateUserAccountAs(db, actor('admin'), {
+    userId: id, email: 'ayse@nove.group', role: 'executive', issueTempPassword: false,
+  })
+  expect(res.ok).toBe(false)
+  if (res.ok) return
+  expect(res.error.tr).toBe('Bu kişinin giriş yapabilmesi için geçici şifre üretilmeli.')
+  expect(res.error.en).toBe('Generate a temporary password so this person can sign in.')
 })
 
 test('a staff record cannot be given a password', async () => {
   const db = await seeded()
-  // The real seed has no staff records at all (all three accounts are
-  // admins), so one is planted here to exercise the guard.
-  const created = await createUserAs(db, actor('admin'), {
-    name: 'Personel', email: 'personel-parola@nove.group', role: 'staff', departmentId: null,
-  })
-  expect(created.ok).toBe(true)
-  if (!created.ok) return
-
-  const res = await setUserPasswordAs(db, actor('admin'), {
-    userId: created.data.id, password: NEW_PASSWORD,
+  const id = await staffPerson(db)
+  const res = await updateUserAccountAs(db, actor('admin'), {
+    userId: id, email: 'ayse@nove.group', role: 'staff', issueTempPassword: true,
   })
   expect(res.ok).toBe(false)
+  if (res.ok) return
+  expect(res.error.tr).toBe('Personel kayıtlarının parolası olmaz. Önce rolünü değiştir.')
+})
+
+test('an email used by someone else is refused; an invalid one too', async () => {
+  const db = await seeded()
+  const id = await staffPerson(db)
+  const taken = await updateUserAccountAs(db, actor('admin'), {
+    userId: id, email: await EDITOR_ADMIN_EMAIL(db, OTHER_ADMIN_ID), role: 'staff', issueTempPassword: false,
+  })
+  expect(taken.ok).toBe(false)
+  if (!taken.ok) expect(taken.error.tr).toBe('Bu e-posta zaten kayıtlı.')
+
+  const invalid = await updateUserAccountAs(db, actor('admin'), {
+    userId: id, email: 'eposta-degil', role: 'staff', issueTempPassword: false,
+  })
+  expect(invalid.ok).toBe(false)
+  if (!invalid.ok) expect(invalid.error.tr).toBe('Geçerli bir e-posta gir.')
+})
+
+test('an admin cannot issue a temporary password on their own row, but can still change their own email', async () => {
+  const db = await seeded()
+  const self = await updateUserAccountAs(db, actor('admin'), {
+    userId: ADMIN_ID, email: await EDITOR_ADMIN_EMAIL(db, ADMIN_ID), role: 'admin', issueTempPassword: true,
+  })
+  expect(self.ok).toBe(false)
+  if (!self.ok) expect(self.error.tr).toBe("Kendi şifreni Hesabım'dan değiştir.")
+
+  const email = await updateUserAccountAs(db, actor('admin'), {
+    userId: ADMIN_ID, email: 'kagan.yeni@nove.group', role: 'admin', issueTempPassword: false,
+  })
+  expect(email.ok).toBe(true)
+  if (email.ok) expect(email.data.tempPassword).toBeNull()
+  const [row] = await db.select().from(users).where(eq(users.id, ADMIN_ID))
+  expect(row!.email).toBe('kagan.yeni@nove.group')
+  expect(row!.mustChangePassword).toBe(false)
+})
+
+test('resetting an existing account replaces its password and flags it', async () => {
+  const { db, password } = await seededWithPassword()
+  const res = await updateUserAccountAs(db, actor('admin'), {
+    userId: OTHER_ADMIN_ID, email: await EDITOR_ADMIN_EMAIL(db, OTHER_ADMIN_ID), role: 'admin', issueTempPassword: true,
+  })
+  expect(res.ok).toBe(true)
+  const [row] = await db.select().from(users).where(eq(users.id, OTHER_ADMIN_ID))
+  expect(row!.mustChangePassword).toBe(true)
+  expect(await bcrypt.compare(password, row!.passwordHash!)).toBe(false)
+})
+
+test('an existing account can be edited without touching its password', async () => {
+  const { db, password } = await seededWithPassword()
+  const res = await updateUserAccountAs(db, actor('admin'), {
+    userId: OTHER_ADMIN_ID, email: 'oguzhan.yeni@nove.group', role: 'executive', issueTempPassword: false,
+  })
+  expect(res.ok).toBe(true)
+  const [row] = await db.select().from(users).where(eq(users.id, OTHER_ADMIN_ID))
+  expect(row!.role).toBe('executive')
+  expect(row!.mustChangePassword).toBe(false)
+  expect(await bcrypt.compare(password, row!.passwordHash!)).toBe(true)
+})
+
+test('demoting to staff through Düzenle clears the credential and the pending flag together', async () => {
+  const db = await seeded()
+  const id = await staffPerson(db)
+  await updateUserAccountAs(db, actor('admin'), {
+    userId: id, email: 'ayse@nove.group', role: 'executive', issueTempPassword: true,
+  })
+  const res = await updateUserAccountAs(db, actor('admin'), {
+    userId: id, email: 'ayse@nove.group', role: 'staff', issueTempPassword: false,
+  })
+  expect(res.ok).toBe(true)
+  const [row] = await db.select().from(users).where(eq(users.id, id))
+  expect(row!.passwordHash).toBeNull()
+  expect(row!.mustChangePassword).toBe(false)
+})
+
+test('the own-role and last-admin rules hold here as well', async () => {
+  const db = await seeded()
+  const own = await updateUserAccountAs(db, actor('admin'), {
+    userId: ADMIN_ID, email: await EDITOR_ADMIN_EMAIL(db, ADMIN_ID), role: 'executive', issueTempPassword: false,
+  })
+  expect(own.ok).toBe(false)
+  if (!own.ok) expect(own.error.tr).toBe('Kendi yönetici yetkini kaldıramazsın.')
+
+  await setUserRoleAs(db, actor('admin'), { userId: OTHER_ADMIN_ID, role: 'staff' })
+  await setUserRoleAs(db, actor('admin'), { userId: THIRD_ADMIN_ID, role: 'staff' })
+  // A session that still claims admin (the other account, now staff in the
+  // database) tries to demote the last real admin.
+  const last = await updateUserAccountAs(db, actor('admin', OTHER_ADMIN_ID), {
+    userId: ADMIN_ID, email: await EDITOR_ADMIN_EMAIL(db, ADMIN_ID), role: 'executive', issueTempPassword: false,
+  })
+  expect(last.ok).toBe(false)
+  if (!last.ok) expect(last.error.tr).toBe('Son yönetici hesabının rolü değiştirilemez.')
+})
+
+test('only admins edit accounts, and an unknown id is reported', async () => {
+  const db = await seeded()
+  const id = await staffPerson(db)
+  const exec = await updateUserAccountAs(db, actor('executive'), {
+    userId: id, email: null, role: 'staff', issueTempPassword: false,
+  })
+  expect(exec).toEqual({ ok: false, error: FORBIDDEN })
+
+  const missing = await updateUserAccountAs(db, actor('admin'), {
+    userId: 'u-yok', email: null, role: 'staff', issueTempPassword: false,
+  })
+  expect(missing.ok).toBe(false)
+  if (!missing.ok) expect(missing.error.tr).toBe('Kullanıcı bulunamadı.')
 })
 
 test('changing your own password requires the current one', async () => {
@@ -274,6 +423,17 @@ test('changing your own password requires the current one', async () => {
 
   const [row] = await db.select().from(users).where(eq(users.id, ADMIN_ID))
   expect(await bcrypt.compare(NEW_PASSWORD, row?.passwordHash ?? '')).toBe(true)
+})
+
+test('choosing your own password clears a pending temporary one', async () => {
+  const { db, password } = await seededWithPassword()
+  await db.update(users).set({ mustChangePassword: true }).where(eq(users.id, ADMIN_ID))
+  const res = await changeOwnPasswordAs(db, actor('admin'), {
+    currentPassword: password, newPassword: NEW_PASSWORD,
+  })
+  expect(res.ok).toBe(true)
+  const [row] = await db.select().from(users).where(eq(users.id, ADMIN_ID))
+  expect(row!.mustChangePassword).toBe(false)
 })
 
 test('the new password must differ from the current one', async () => {
