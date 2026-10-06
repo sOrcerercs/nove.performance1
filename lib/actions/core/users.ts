@@ -174,9 +174,10 @@ export async function setUserRoleAs(
     .update(users)
     .set({
       role,
-      // Demoting to staff revokes the credential rather than leaving a dormant
-      // one behind; promoting leaves the account password-less until one is set.
-      ...(canSignIn(role) ? {} : { passwordHash: null }),
+      // Demoting to staff revokes the credential and anything pending on it
+      // rather than leaving a dormant one behind; promoting leaves the account
+      // password-less until one is set.
+      ...(canSignIn(role) ? {} : { passwordHash: null, mustChangePassword: false }),
     })
     .where(eq(users.id, userId))
 

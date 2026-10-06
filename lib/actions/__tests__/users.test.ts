@@ -127,6 +127,17 @@ test('demoting a user to staff revokes their password', async () => {
   expect(row?.passwordHash).toBeNull()
 })
 
+test('demoting to staff also clears a pending temporary-password flag', async () => {
+  const db = await seeded()
+  await db.update(users).set({ mustChangePassword: true }).where(eq(users.id, OTHER_ADMIN_ID))
+  const res = await setUserRoleAs(db, actor('admin'), { userId: OTHER_ADMIN_ID, role: 'staff' })
+  expect(res.ok).toBe(true)
+
+  const [row] = await db.select().from(users).where(eq(users.id, OTHER_ADMIN_ID))
+  expect(row?.passwordHash).toBeNull()
+  expect(row?.mustChangePassword).toBe(false)
+})
+
 test('you cannot remove your own admin rights', async () => {
   const db = await seeded()
   const res = await setUserRoleAs(db, actor('admin'), { userId: ADMIN_ID, role: 'executive' })
