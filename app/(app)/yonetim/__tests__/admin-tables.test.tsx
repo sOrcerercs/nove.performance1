@@ -48,6 +48,9 @@ test('each row has Edit instead of the old Password button, and it opens the pan
   // The new-user form above also has an "email" field; scope to the panel.
   const panel = screen.getByRole('group', { name: 'Ayşe edit' })
   expect((within(panel).getByLabelText('email') as HTMLInputElement).value).toBe('ayse@nove.group')
+  // The panel gets its own full-width row instead of squeezing into the action cell.
+  expect((panel.closest('td') as HTMLTableCellElement).colSpan).toBe(8)
+  expect(panel.closest('tr')!.querySelectorAll('td')).toHaveLength(1)
 })
 
 test('someone who has not replaced a temporary password is marked as pending', () => {

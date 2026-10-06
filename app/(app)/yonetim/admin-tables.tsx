@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useState, useTransition } from 'react'
+import { Fragment, useState, useTransition } from 'react'
 import { Avatar } from '@/components/ui/Avatar'
 import { useToast } from '@/components/ui/ToastProvider'
 import {
@@ -28,6 +28,9 @@ import styles from './admin.module.css'
 
 /** İK/Yönetim only — there are no department-lead or team-member accounts. */
 const ROLES: Role[] = ['admin', 'executive', 'staff']
+
+/** Columns in the users table header — the Düzenle row spans all of them. */
+const USER_COLUMNS = 8
 
 const STATE_CLASS: Record<string, string | undefined> = {
   active: styles.stateActive,
@@ -231,7 +234,8 @@ export function AdminTables({
             {visibleUsers.map((u) => {
               const isSelf = u.id === currentUserId
               return (
-                <tr className={styles.row} key={u.id}>
+                <Fragment key={u.id}>
+                <tr className={styles.row}>
                   <td className={styles.td}>
                     <span className={styles.userCell}>
                       <Avatar name={u.name} />
@@ -350,7 +354,13 @@ export function AdminTables({
                         </button>
                       ) : null}
                     </div>
-                    {editFor === u.id ? (
+                  </td>
+                </tr>
+                {/* Its own full-width row: inside the narrow action cell the
+                    panel widened the whole table and pushed fields off-screen. */}
+                {editFor === u.id ? (
+                  <tr className={styles.editRow}>
+                    <td className={styles.td} colSpan={USER_COLUMNS}>
                       <UserAccountEditor
                         user={u} isSelf={isSelf}
                         onIssuedChange={setShowingPassword}
@@ -361,9 +371,10 @@ export function AdminTables({
                           refresh()
                         }}
                       />
-                    ) : null}
-                  </td>
-                </tr>
+                    </td>
+                  </tr>
+                ) : null}
+                </Fragment>
               )
             })}
           </tbody>
