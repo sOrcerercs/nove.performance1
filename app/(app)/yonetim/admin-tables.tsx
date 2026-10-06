@@ -23,6 +23,7 @@ import { usePrefs } from '@/lib/prefs/PrefsProvider'
 import type { AdminVm } from '@/lib/queries/admin'
 import type { AssignablePerson } from '@/lib/queries/people'
 import { DepartmentsTable } from './departments-table'
+import { UserAccountEditor } from './user-account-editor'
 import styles from './admin.module.css'
 
 /** İK/Yönetim only — there are no department-lead or team-member accounts. */
@@ -76,6 +77,8 @@ export function AdminTables({
   type UserFilter = 'all' | 'noDept' | 'noManager'
   const [userFilter, setUserFilter] = useState<UserFilter>('all')
   const [deptFilter, setDeptFilter] = useState('')
+  // Düzenle — which row's panel is open
+  const [editFor, setEditFor] = useState<string | null>(null)
   const activeUsers = vm.users.filter((u) => u.state === 'active')
   const missingDept = activeUsers.filter((u) => u.departmentId === null).length
   const missingManager = activeUsers.filter((u) => u.managerId === null).length
@@ -309,10 +312,19 @@ export function AdminTables({
                       <span className={styles.dot} aria-hidden="true" />
                       {stateLabel(u.state)}
                     </span>
+                    {u.mustChangePassword ? (
+                      <span className={`${styles.pill} ${styles.statePlanned}`}>{t('passwordPending')}</span>
+                    ) : null}
                   </td>
 
                   <td className={styles.td}>
                     <div className={styles.actions}>
+                      <button
+                        type="button" className={styles.linkBtn} disabled={pending}
+                        onClick={() => setEditFor(editFor === u.id ? null : u.id)}
+                      >
+                        {t('edit')}
+                      </button>
                       {!isSelf ? (
                         <button
                           type="button" className={styles.linkBtn} disabled={pending}
@@ -336,6 +348,17 @@ export function AdminTables({
                         </button>
                       ) : null}
                     </div>
+                    {editFor === u.id ? (
+                      <UserAccountEditor
+                        user={u} isSelf={isSelf}
+                        onCancel={() => setEditFor(null)}
+                        onDone={() => {
+                          setEditFor(null)
+                          toast(t('toastAccountUpdated'))
+                          refresh()
+                        }}
+                      />
+                    ) : null}
                   </td>
                 </tr>
               )
