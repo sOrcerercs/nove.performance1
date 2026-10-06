@@ -1,14 +1,13 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useState, useTransition } from 'react'
+import { Fragment, useState, useTransition } from 'react'
 import { Avatar } from '@/components/ui/Avatar'
 import { useToast } from '@/components/ui/ToastProvider'
 import {
   createPeriod,
   createUser,
   deleteUser,
-  setUserPassword,
   setDefaultRangeStart,
   setPeriodState,
   updatePeriodDates,
@@ -24,10 +23,14 @@ import { usePrefs } from '@/lib/prefs/PrefsProvider'
 import type { AdminVm } from '@/lib/queries/admin'
 import type { AssignablePerson } from '@/lib/queries/people'
 import { DepartmentsTable } from './departments-table'
+import { UserAccountEditor } from './user-account-editor'
 import styles from './admin.module.css'
 
 /** İK/Yönetim only — there are no department-lead or team-member accounts. */
 const ROLES: Role[] = ['admin', 'executive', 'staff']
+
+/** Columns in the users table header — the Düzenle row spans all of them. */
+const USER_COLUMNS = 8
 
 const STATE_CLASS: Record<string, string | undefined> = {
   active: styles.stateActive,
@@ -66,10 +69,6 @@ export function AdminTables({
   const [pStart, setPStart] = useState('')
   const [pEnd, setPEnd] = useState('')
 
-  // Password reset — which row is open
-  const [resetFor, setResetFor] = useState<string | null>(null)
-  const [resetPassword, setResetPassword] = useState('')
-
   // Period date edit — which row is open, and its draft
   const [dateFor, setDateFor] = useState<string | null>(null)
   const [dStart, setDStart] = useState('')
@@ -81,6 +80,10 @@ export function AdminTables({
   type UserFilter = 'all' | 'noDept' | 'noManager'
   const [userFilter, setUserFilter] = useState<UserFilter>('all')
   const [deptFilter, setDeptFilter] = useState('')
+  // Düzenle — which row's panel is open
+  const [editFor, setEditFor] = useState<string | null>(null)
+  // A generated password is on screen: keep the panel from being unmounted before it is copied
+  const [showingPassword, setShowingPassword] = useState(false)
   const activeUsers = vm.users.filter((u) => u.state === 'active')
   const missingDept = activeUsers.filter((u) => u.departmentId === null).length
   const missingManager = activeUsers.filter((u) => u.managerId === null).length
@@ -138,14 +141,6 @@ export function AdminTables({
       () => setDefaultRangeStart({ startsOn: rangeStart }),
       t('toastRangeStartUpdated'),
     )
-  }
-
-  async function onResetPassword(userId: string) {
-    const ok = await run(
-      () => setUserPassword({ userId, password: resetPassword }),
-      t('toastPasswordUpdated'),
-    )
-    if (ok) { setResetFor(null); setResetPassword('') }
   }
 
   return (
@@ -239,7 +234,8 @@ export function AdminTables({
             {visibleUsers.map((u) => {
               const isSelf = u.id === currentUserId
               return (
-                <tr className={styles.row} key={u.id}>
+                <Fragment key={u.id}>
+                <tr className={styles.row}>
                   <td className={styles.td}>
                     <span className={styles.userCell}>
                       <Avatar name={u.name} />
@@ -322,22 +318,19 @@ export function AdminTables({
                       <span className={styles.dot} aria-hidden="true" />
                       {stateLabel(u.state)}
                     </span>
+                    {u.mustChangePassword ? (
+                      <span className={`${styles.pill} ${styles.statePlanned}`}>{t('passwordPending')}</span>
+                    ) : null}
                   </td>
 
                   <td className={styles.td}>
                     <div className={styles.actions}>
-                      {canSignIn(u.role) ? (
-                        <button
-                          type="button" className={styles.linkBtn} disabled={pending}
-                          onClick={() => {
-                            setResetFor(resetFor === u.id ? null : u.id)
-                            setResetPassword('')
-                          }}
-                        >
-                          {t('password')}
-                        </button>
-                      ) : null}
-
+                      <button
+                        type="button" className={styles.linkBtn} disabled={pending || showingPassword}
+                        onClick={() => setEditFor(editFor === u.id ? null : u.id)}
+                      >
+                        {t('edit')}
+                      </button>
                       {!isSelf ? (
                         <button
                           type="button" className={styles.linkBtn} disabled={pending}
@@ -361,27 +354,27 @@ export function AdminTables({
                         </button>
                       ) : null}
                     </div>
-
-                    {resetFor === u.id ? (
-                      <div className={styles.resetRow}>
-                        <input
-                          className={styles.input} type="password" autoComplete="new-password"
-                          placeholder={t('newPasswordMinPh')}
-                          aria-label={`${u.name} ${t('newPassword').toLowerCase()}`}
-                          value={resetPassword}
-                          onChange={(e) => setResetPassword(e.target.value)}
-                        />
-                        <button
-                          type="button" className={styles.primary}
-                          disabled={pending || resetPassword.length < 12}
-                          onClick={() => onResetPassword(u.id)}
-                        >
-                          {t('saveBtn')}
-                        </button>
-                      </div>
-                    ) : null}
                   </td>
                 </tr>
+                {/* Its own full-width row: inside the narrow action cell the
+                    panel widened the whole table and pushed fields off-screen. */}
+                {editFor === u.id ? (
+                  <tr className={styles.editRow}>
+                    <td className={styles.td} colSpan={USER_COLUMNS}>
+                      <UserAccountEditor
+                        user={u} isSelf={isSelf}
+                        onIssuedChange={setShowingPassword}
+                        onCancel={() => setEditFor(null)}
+                        onDone={() => {
+                          setEditFor(null)
+                          toast(t('toastAccountUpdated'))
+                          refresh()
+                        }}
+                      />
+                    </td>
+                  </tr>
+                ) : null}
+                </Fragment>
               )
             })}
           </tbody>

@@ -24,6 +24,10 @@ export interface AdminUser {
   managerId: string | null
   managerName: string
   title: string | null
+  /** A temporary password has been issued and not yet replaced. */
+  mustChangePassword: boolean
+  /** Whether the person has any password; staff never do. */
+  hasPassword: boolean
 }
 
 export interface AdminPeriod {
@@ -136,6 +140,8 @@ export async function getAdminData(db: Db): Promise<AdminVm> {
         managerId: u.managerId,
         managerName: u.managerId ? (userById.get(u.managerId)?.name ?? '') : '',
         title: u.title,
+        mustChangePassword: u.mustChangePassword,
+        hasPassword: u.hasPassword,
       }
     }),
     periods: periodRows.map((p) => ({

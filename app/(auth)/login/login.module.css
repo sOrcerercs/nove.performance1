@@ -275,3 +275,4 @@
   transition: color .35s var(--ease-out);
 }
 .langOption[aria-checked="true"] { color: var(--parchment); }
+.forgot { margin-top: 6px; font-size: 12px; opacity: .7; }

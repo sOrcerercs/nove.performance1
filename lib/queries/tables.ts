@@ -1,5 +1,5 @@
 import { cache } from 'react'
-import { asc } from 'drizzle-orm'
+import { asc, sql } from 'drizzle-orm'
 import type { Db } from '@/lib/db'
 import {
   appSettings,
@@ -84,8 +84,11 @@ export type KrMonthlyValueRow = typeof krMonthlyValues.$inferSelect
 /** Deliberately excludes `passwordHash`: no render path has any use for it. */
 export type UserRow = Pick<
   typeof users.$inferSelect,
-  'id' | 'name' | 'email' | 'role' | 'departmentId' | 'managerId' | 'title' | 'state'
->
+  'id' | 'name' | 'email' | 'role' | 'departmentId' | 'managerId' | 'title' | 'state' | 'mustChangePassword'
+> & {
+  /** Whether a credential exists — the admin screen needs the fact, never the hash. */
+  hasPassword: boolean
+}
 
 /** Oldest first — the order the period picker lists them in. */
 export const allPeriods = (db: Db): Promise<PeriodRow[]> =>
@@ -106,6 +109,8 @@ export const allUsers = (db: Db): Promise<UserRow[]> =>
         managerId: users.managerId,
         title: users.title,
         state: users.state,
+        mustChangePassword: users.mustChangePassword,
+        hasPassword: sql<boolean>`${users.passwordHash} is not null`,
       })
       .from(users),
   )
