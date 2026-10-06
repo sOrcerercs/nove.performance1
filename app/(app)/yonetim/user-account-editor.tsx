@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useState } from 'react'
 import { updateUserAccount } from '@/lib/actions/admin'
 import { canSignIn, type Role } from '@/lib/domain/types'
@@ -130,6 +131,11 @@ export function UserAccountEditor({
           {t('tempPasswordIssue')}
           {forced ? <span className={styles.userEmail}> — {t('tempPasswordForced')}</span> : null}
         </label>
+      ) : null}
+
+      {/* Your own row never issues a temporary password; say where to go instead. */}
+      {isSelf && canSignIn(role) ? (
+        <Link href="/hesap#parola" className={styles.linkBtn}>{t('changePassword')} →</Link>
       ) : null}
 
       {error ? <p className={styles.error} role="alert">{error}</p> : null}

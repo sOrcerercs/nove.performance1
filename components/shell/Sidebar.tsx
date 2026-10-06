@@ -117,6 +117,11 @@ export function Sidebar({
             {user.name}
           </Link>
           <div className={styles.footerRole}>{t(ROLE_KEY[user.role])}</div>
+          {/* The name already links to the account screen, but nothing said a
+              password could be changed there. */}
+          <Link href={`${withRange('/hesap')}#parola`} className={styles.footerLink}>
+            {t('changePassword')}
+          </Link>
         </div>
         <form action={signOutAction}>
           <button type="submit" className={styles.signOut}>{t('signOut')}</button>

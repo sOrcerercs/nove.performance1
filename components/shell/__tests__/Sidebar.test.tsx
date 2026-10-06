@@ -145,3 +145,10 @@ test('Key Results sits under Yönetim, only for those who may see it, and lights
   expect(screen.getByRole('link', { name: 'navKeyResults' }).getAttribute('aria-current')).toBe('page')
   expect(screen.getByRole('link', { name: 'admin' }).getAttribute('aria-current')).toBeNull()
 })
+
+test('the footer has a visible password-change link to the account screen, keeping the range', () => {
+  setSearchParams('from=2026-01-01&to=2026-03-31')
+  renderSidebar()
+  const link = screen.getByRole('link', { name: 'changePassword' })
+  expect(link.getAttribute('href')).toBe('/hesap?from=2026-01-01&to=2026-03-31#parola')
+})
