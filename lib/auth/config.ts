@@ -7,6 +7,7 @@ import { getDb } from '@/lib/db'
 import { users } from '@/lib/db/schema'
 import { canSignIn, type Role } from '@/lib/domain/types'
 import { clearFailures, getThrottleState, recordFailure } from './throttle'
+import { refreshPasswordFlag, stampSignIn, type SignedInUser } from './token'
 
 const credentialsSchema = z.object({
   email: z.string().email(),
@@ -21,11 +22,12 @@ declare module 'next-auth' {
       email: string
       role: Role
       departmentId: string | null
+      mustChangePassword: boolean
     }
   }
 }
 
-export const { handlers, auth, signIn, signOut } = NextAuth({
+export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
   // Credentials sign-in requires JWT sessions: there is no adapter row to
   // point a database session at.
   session: { strategy: 'jwt' },
@@ -77,25 +79,25 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           email: user.email ?? email,
           role: user.role,
           departmentId: user.departmentId,
+          mustChangePassword: user.mustChangePassword,
         }
       },
     }),
   ],
   callbacks: {
-    // The JWT is the only place role and department survive between requests,
-    // so they are copied on at sign-in and read back into the session.
-    jwt({ token, user }) {
-      if (user) {
-        token.id = user.id
-        token.role = (user as { role: Role }).role
-        token.departmentId = (user as { departmentId: string | null }).departmentId
-      }
+    // The JWT is the only place role, department and the pending-password flag
+    // survive between requests, so they are copied on at sign-in and read back
+    // into the session.
+    async jwt({ token, user, trigger }) {
+      if (user) stampSignIn(token, user as unknown as SignedInUser)
+      if (trigger === 'update') await refreshPasswordFlag(await getDb(), token)
       return token
     },
     session({ session, token }) {
       session.user.id = token.id as string
       session.user.role = token.role as Role
       session.user.departmentId = token.departmentId as string | null
+      session.user.mustChangePassword = token.mustChangePassword === true
       return session
     },
   },

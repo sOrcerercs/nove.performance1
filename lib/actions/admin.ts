@@ -1,6 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { unstable_update } from '@/lib/auth/config'
 import { requireUser } from '@/lib/auth/session'
 import { getDb } from '@/lib/db'
 import type { PeriodKind, Role } from '@/lib/domain/types'
@@ -106,9 +107,14 @@ export async function changeOwnPassword(input: {
   currentPassword: string
   newPassword: string
 }): Promise<ActionResult<{ id: string }>> {
-  const user = await requireUser()
+  // The one action a pending temporary password may reach.
+  const user = await requireUser({ allowPendingPassword: true })
   const db = await getDb()
-  return changeOwnPasswordAs(db, user, input)
+  const result = await changeOwnPasswordAs(db, user, input)
+  // The token still says "pending"; the jwt callback re-reads the flag from
+  // the database on this update (lib/auth/token.ts).
+  if (result.ok) await unstable_update({})
+  return result
 }
 
 export async function createPeriod(
