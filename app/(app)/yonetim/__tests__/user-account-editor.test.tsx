@@ -69,9 +69,16 @@ test('an existing account may be reset, but is not by default', async () => {
   })
 })
 
-test('your own row offers no temporary password', () => {
+test('your own row offers no temporary password, but points to your own password change instead', () => {
   render(<UserAccountEditor user={{ ...account, role: 'admin' }} isSelf onDone={vi.fn()} onCancel={vi.fn()} />)
   expect(checkbox()).toBeNull()
+  const link = screen.getByRole('link', { name: /changePassword/ })
+  expect(link.getAttribute('href')).toBe('/hesap#parola')
+})
+
+test("someone else's row does not show the own-password link", () => {
+  render(<UserAccountEditor user={account} isSelf={false} onDone={vi.fn()} onCancel={vi.fn()} />)
+  expect(screen.queryByRole('link', { name: /changePassword/ })).toBeNull()
 })
 
 test('a refusal is shown in the chosen language and the panel stays open', async () => {

@@ -33,7 +33,7 @@ export function AccountForm({
         </dl>
       </section>
 
-      <section className={styles.card}>
+      <section className={styles.card} id="parola">
         <h2 className={styles.cardTitle}>{t('changePassword')}</h2>
         <p className={styles.lead}>
           {fill(t('passwordLead'), { n: MIN_LENGTH })}

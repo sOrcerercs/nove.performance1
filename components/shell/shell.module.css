@@ -216,6 +216,8 @@
 /* The footer name doubles as the link to the account screen. */
 a.footerName { color: var(--ink); }
 a.footerName:hover { color: var(--blue-600); text-decoration: underline; }
+.footerLink { display: inline-block; margin-top: 2px; font-size: 12px; color: var(--text-muted); }
+.footerLink:hover { color: var(--blue-600); text-decoration: underline; }
 
 /* Density toggle in its pressed state. */
 .densityOn {
