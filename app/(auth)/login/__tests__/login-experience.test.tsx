@@ -122,3 +122,8 @@ test('opened from the sidebar it starts on the welcome screen, no form', async (
   fireEvent.click(screen.getByRole('button', { name: /kaydır/i }))
   await waitFor(() => expect(router.replace).toHaveBeenCalledWith('/'))
 })
+
+test('the form says where to go when a password is forgotten', () => {
+  renderScreen()
+  expect(screen.getByText('Parolanı mı unuttun? Yöneticine başvur.')).toBeTruthy()
+})

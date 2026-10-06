@@ -1,0 +1,5 @@
+.page { min-height: 100vh; display: grid; place-items: center; padding: 24px; box-sizing: border-box; }
+.signOut {
+  margin-top: 16px; padding: 0; border: 0; background: none; font: inherit; font-size: 13px;
+  color: var(--text-muted); text-decoration: underline; cursor: pointer;
+}

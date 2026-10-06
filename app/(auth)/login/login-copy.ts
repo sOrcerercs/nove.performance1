@@ -17,6 +17,7 @@ export const COPY = {
     email: 'E-posta',
     emailPlaceholder: 'ad.soyad@nove.group',
     password: 'Parola',
+    forgot: 'Parolanı mı unuttun? Yöneticine başvur.',
     submit: 'Giriş yap',
     submitting: 'Giriş yapılıyor',
     seedHint:
@@ -39,6 +40,7 @@ export const COPY = {
     email: 'Email',
     emailPlaceholder: 'name.surname@nove.group',
     password: 'Password',
+    forgot: 'Forgot your password? Ask your administrator.',
     submit: 'Sign in',
     submitting: 'Signing in',
     seedHint:

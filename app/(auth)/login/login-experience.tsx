@@ -609,6 +609,7 @@ export function LoginExperience({
                   {fieldMessage('password', fieldErrors.password, lang)}
                 </span>
               ) : null}
+              <p className={styles.forgot}>{c.forgot}</p>
             </div>
 
             {failure ? (
