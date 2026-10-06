@@ -39,8 +39,8 @@ test('a token from before this change carries no flag and is not redirected', as
 
 test('the change screen sends someone with nothing pending home, and no session to the login', async () => {
   authReturns(signedIn({ mustChangePassword: false }))
-  await expect(requirePendingPasswordUser()).rejects.toThrow('redirect:/')
+  await expect(requirePendingPasswordUser()).rejects.toThrow(/^redirect:\/$/)
   authReturns(null)
-  await expect(requirePendingPasswordUser()).rejects.toThrow('redirect:/login')
-  await expect(requireUser()).rejects.toThrow('redirect:/login')
+  await expect(requirePendingPasswordUser()).rejects.toThrow(/^redirect:\/login$/)
+  await expect(requireUser()).rejects.toThrow(/^redirect:\/login$/)
 })

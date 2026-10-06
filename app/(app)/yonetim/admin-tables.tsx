@@ -79,6 +79,8 @@ export function AdminTables({
   const [deptFilter, setDeptFilter] = useState('')
   // Düzenle — which row's panel is open
   const [editFor, setEditFor] = useState<string | null>(null)
+  // A generated password is on screen: keep the panel from being unmounted before it is copied
+  const [showingPassword, setShowingPassword] = useState(false)
   const activeUsers = vm.users.filter((u) => u.state === 'active')
   const missingDept = activeUsers.filter((u) => u.departmentId === null).length
   const missingManager = activeUsers.filter((u) => u.managerId === null).length
@@ -320,7 +322,7 @@ export function AdminTables({
                   <td className={styles.td}>
                     <div className={styles.actions}>
                       <button
-                        type="button" className={styles.linkBtn} disabled={pending}
+                        type="button" className={styles.linkBtn} disabled={pending || showingPassword}
                         onClick={() => setEditFor(editFor === u.id ? null : u.id)}
                       >
                         {t('edit')}
@@ -351,6 +353,7 @@ export function AdminTables({
                     {editFor === u.id ? (
                       <UserAccountEditor
                         user={u} isSelf={isSelf}
+                        onIssuedChange={setShowingPassword}
                         onCancel={() => setEditFor(null)}
                         onDone={() => {
                           setEditFor(null)

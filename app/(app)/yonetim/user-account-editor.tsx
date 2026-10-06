@@ -27,11 +27,14 @@ export function UserAccountEditor({
   isSelf,
   onDone,
   onCancel,
+  onIssuedChange,
 }: {
   user: EditableUser
   isSelf: boolean
   onDone: () => void
   onCancel: () => void
+  /** Tells the parent a generated password is on screen, so it can keep the panel from being unmounted. */
+  onIssuedChange?: (shown: boolean) => void
 }) {
   const { t, lang } = usePrefs()
   const [email, setEmail] = useState(user.email ?? '')
@@ -62,8 +65,10 @@ export function UserAccountEditor({
       setError(tx(result.error, lang))
       return
     }
-    if (result.data.tempPassword) setIssued(result.data.tempPassword)
-    else onDone()
+    if (result.data.tempPassword) {
+      setIssued(result.data.tempPassword)
+      onIssuedChange?.(true)
+    } else onDone()
   }
 
   async function onCopy() {
@@ -78,6 +83,7 @@ export function UserAccountEditor({
 
   function onClose() {
     setIssued(null)
+    onIssuedChange?.(false)
     onDone()
   }
 

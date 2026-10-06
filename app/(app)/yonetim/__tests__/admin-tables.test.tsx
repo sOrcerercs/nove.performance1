@@ -3,6 +3,7 @@ import { useRouter } from 'next/navigation'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { usePrefs } from '@/lib/prefs/PrefsProvider'
 import type { AdminUser, AdminVm } from '@/lib/queries/admin'
+import { updateUserAccount } from '@/lib/actions/admin'
 import { AdminTables } from '../admin-tables'
 
 vi.mock('next/navigation', () => ({ useRouter: vi.fn() }))
@@ -52,4 +53,21 @@ test('each row has Edit instead of the old Password button, and it opens the pan
 test('someone who has not replaced a temporary password is marked as pending', () => {
   render(<AdminTables vm={vm([person({ role: 'executive', hasPassword: true, mustChangePassword: true })])} currentUserId="u-me" people={[]} />)
   expect(screen.getByText('passwordPending')).toBeTruthy()
+})
+
+test('while a generated password is on screen the Edit buttons stay disabled, so it cannot be lost', async () => {
+  vi.mocked(updateUserAccount).mockResolvedValue({ ok: true, data: { id: 'u-ayse', tempPassword: 'Abcdefgh23456789' } } as never)
+  render(<AdminTables vm={vm([person({})])} currentUserId="u-me" people={[]} />)
+
+  fireEvent.click(screen.getByRole('button', { name: 'edit' }))
+  const panel = screen.getByRole('group', { name: 'Ayşe edit' })
+  fireEvent.change(within(panel).getByLabelText('thRole'), { target: { value: 'executive' } })
+  fireEvent.change(within(panel).getByLabelText('email'), { target: { value: 'ayse@nove.group' } })
+  fireEvent.click(within(panel).getByRole('button', { name: 'saveBtn' }))
+
+  expect(await screen.findByText('Abcdefgh23456789')).toBeTruthy()
+  expect((screen.getByRole('button', { name: 'edit' }) as HTMLButtonElement).disabled).toBe(true)
+
+  fireEvent.click(screen.getByRole('button', { name: 'close' }))
+  expect((screen.getByRole('button', { name: 'edit' }) as HTMLButtonElement).disabled).toBe(false)
 })
