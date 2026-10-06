@@ -1,5 +1,6 @@
 import {
   type AnyPgColumn,
+  boolean,
   doublePrecision,
   integer,
   pgEnum,
@@ -61,6 +62,11 @@ export const users = pgTable(
     managerId: text('manager_id').references((): AnyPgColumn => users.id),
     /** Job title from the HR list. Display only. */
     title: text('title'),
+    /**
+     * Set when an admin issues a temporary password. The person cannot use the
+     * app until they choose their own (see lib/auth/session.ts).
+     */
+    mustChangePassword: boolean('must_change_password').notNull().default(false),
     state: userStateEnum('state').notNull().default('active'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },

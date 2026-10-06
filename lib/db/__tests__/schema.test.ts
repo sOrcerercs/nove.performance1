@@ -3,6 +3,7 @@ import { expect, test } from 'vitest'
 import { createTestDb } from '../index'
 import { seed } from '../seed'
 import { departments, keyResults, objectives, periods, users } from '../schema'
+import { allUsers } from '@/lib/queries/tables'
 
 test('a department round-trips through the database', async () => {
   const db = await createTestDb()
@@ -100,4 +101,20 @@ test('a key result stores an optional weight', async () => {
   await db.update(keyResults).set({ weight: 40.5 }).where(eq(keyResults.id, kr!.id))
   const [after] = await db.select().from(keyResults).where(eq(keyResults.id, kr!.id))
   expect(after!.weight).toBe(40.5)
+})
+
+test('a user starts with no pending password change, and the shared read says whether a password exists without exposing it', async () => {
+  const db = await createTestDb()
+  await seed(db)
+  const [kagan] = await db.select().from(users).where(eq(users.id, 'u-kagan.ozturk'))
+  expect(kagan!.mustChangePassword).toBe(false)
+
+  await db.insert(users).values({ id: 'u-personel', name: 'Personel', email: null, role: 'staff', state: 'active' })
+  const rows = await allUsers(db)
+  const admin = rows.find((u) => u.id === 'u-kagan.ozturk')!
+  const staff = rows.find((u) => u.id === 'u-personel')!
+  expect(admin.hasPassword).toBe(true)
+  expect(staff.hasPassword).toBe(false)
+  expect(admin.mustChangePassword).toBe(false)
+  expect(admin).not.toHaveProperty('passwordHash')
 })
