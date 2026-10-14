@@ -24,6 +24,12 @@ export const OBJECTIVE_MESSAGES = {
 }
 const M = OBJECTIVE_MESSAGES
 
+/** Messages for an objective-level weight set (management's per-period form). */
+export const OBJECTIVE_WEIGHT_MESSAGES = {
+  partial: msg('Ağırlık ya her objective’e girilmeli ya hiçbirine.', 'Enter a weight for every objective, or for none.'),
+  stale: msg('Objective listesi değişmiş, sayfayı yenileyin.', 'The objective list has changed; reload the page.'),
+}
+
 /**
  * One schema, used by both the wizard's live validation and the server action.
  * Keeping a single definition is what stops the two from drifting — the client

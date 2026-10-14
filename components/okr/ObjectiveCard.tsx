@@ -162,7 +162,7 @@ export function DepartmentScreen({
             </div>
           </div>
 
-          {dept.periods.some((p) => p.weightState === 'incomplete') ? (
+          {dept.periods.some((p) => p.weightState !== 'none') && !dept.periods.every((p) => p.weightState === 'complete') ? (
             <p className={styles.note} role="status">{t('objectiveWeightsIncomplete')}</p>
           ) : null}
 

@@ -36,7 +36,7 @@ function openPanel(objectives: ObjectiveVm[]) {
   fireEvent.click(screen.getByRole('button', { name: 'objectiveWeights' }))
 }
 const input = (label: string) => screen.getByLabelText(label) as HTMLInputElement
-const save = () => screen.getByRole('button', { name: 'save' }) as HTMLButtonElement
+const save = () => screen.getByRole('button', { name: 'saveWeights' }) as HTMLButtonElement
 
 test('closed by default; opening lists each objective with its current weight', () => {
   openPanel([obj('o1', 'O1', 30), obj('o2', 'O2', 70)])
@@ -91,7 +91,7 @@ test('one form per period, each with only its own objectives', () => {
     />,
   )
   fireEvent.click(screen.getByRole('button', { name: 'objectiveWeights' }))
-  expect(screen.getAllByRole('button', { name: 'save' })).toHaveLength(2)
+  expect(screen.getAllByRole('button', { name: 'saveWeights' })).toHaveLength(2)
   expect(screen.getByRole('region', { name: '2026-FY' })).toBeTruthy()
   expect(screen.getByRole('region', { name: '2027-FY' })).toBeTruthy()
 })
@@ -99,4 +99,40 @@ test('one form per period, each with only its own objectives', () => {
 test('renders nothing when the department has no objectives', () => {
   const { container } = render(<ObjectiveWeightsPanel deptId="satis" periods={PERIODS} objectives={[]} />)
   expect(container.innerHTML).toBe('')
+})
+
+test('when the objective list changes under an open panel, each input follows its own objective', async () => {
+  const { rerender } = render(
+    <ObjectiveWeightsPanel deptId="satis" periods={PERIODS} objectives={[obj('o1', 'O1', 30), obj('o2', 'O2', 70)]} />,
+  )
+  fireEvent.click(screen.getByRole('button', { name: 'objectiveWeights' }))
+  // o1 removed, o3 added (same count) after a refresh
+  rerender(
+    <ObjectiveWeightsPanel deptId="satis" periods={PERIODS} objectives={[obj('o2', 'O2', 70), obj('o3', 'O3', 30)]} />,
+  )
+  expect(input('O2 · Hedef O2').value).toBe('70')
+  expect(input('O3 · Hedef O3').value).toBe('30')
+  fireEvent.change(input('O3 · Hedef O3'), { target: { value: '30' } })
+  fireEvent.click(save())
+  await waitFor(() => expect(setObjectiveWeights).toHaveBeenCalledWith({
+    departmentId: 'satis',
+    periodId: 'p1',
+    weights: [{ objectiveId: 'o2', weight: 70 }, { objectiveId: 'o3', weight: 30 }],
+  }))
+})
+
+test('a disabled save says why', () => {
+  openPanel([obj('o1', 'O1', 100), obj('o2', 'O2', null)])
+  expect(save().disabled).toBe(true)
+  expect(screen.getByText('Ağırlık ya her objective’e girilmeli ya hiçbirine.')).toBeTruthy()
+})
+
+test('a wrong total is explained with the actual total', () => {
+  openPanel([obj('o1', 'O1', 60), obj('o2', 'O2', 30)])
+  expect(screen.getByText('Ağırlıkların toplamı %90, %100 olmalı.')).toBeTruthy()
+})
+
+test('a valid set shows no reason', () => {
+  openPanel([obj('o1', 'O1', 60), obj('o2', 'O2', 40)])
+  expect(screen.queryByText(/olmalı/)).toBeNull()
 })

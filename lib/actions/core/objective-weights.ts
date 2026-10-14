@@ -4,14 +4,9 @@ import { can, type SessionUser } from '@/lib/auth/permissions'
 import type { Db } from '@/lib/db'
 import { departments, objectives } from '@/lib/db/schema'
 import { checkWeights, weightTotal } from '@/lib/domain/weights'
-import { weightProblemMessage } from '@/lib/validation/objective'
+import { OBJECTIVE_WEIGHT_MESSAGES, weightProblemMessage } from '@/lib/validation/objective'
 import { fail, FORBIDDEN, INVALID_INPUT, msg, ok, type ActionResult } from '../types'
 
-export const OBJECTIVE_WEIGHT_MESSAGES = {
-  partial: msg('Ağırlık ya her objective’e girilmeli ya hiçbirine.', 'Enter a weight for every objective, or for none.'),
-  stale: msg('Objective listesi değişmiş, sayfayı yenileyin.', 'The objective list has changed; reload the page.'),
-}
-const M = OBJECTIVE_WEIGHT_MESSAGES
 
 const setObjectiveWeightsSchema = z.object({
   departmentId: z.string().min(1),
@@ -65,12 +60,12 @@ export async function setObjectiveWeightsFor(
     new Set(sent).size !== sent.length ||
     sent.some((id) => !current.has(id))
   ) {
-    return fail(M.stale)
+    return fail(OBJECTIVE_WEIGHT_MESSAGES.stale)
   }
 
   const ws = data.weights.map((w) => w.weight)
   const problem = checkWeights(ws, { required: false })
-  if (problem === 'partial') return fail(M.partial)
+  if (problem === 'partial') return fail(OBJECTIVE_WEIGHT_MESSAGES.partial)
   if (problem) return fail(weightProblemMessage(problem, weightTotal(ws)))
 
   await db.transaction(async (tx) => {

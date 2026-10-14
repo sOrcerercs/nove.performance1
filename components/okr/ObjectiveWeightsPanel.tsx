@@ -6,6 +6,7 @@ import { useToast } from '@/components/ui/ToastProvider'
 import { setObjectiveWeights } from '@/lib/actions/objective-weights'
 import { checkWeights, weightTotal } from '@/lib/domain/weights'
 import { fill, tx } from '@/lib/i18n/strings'
+import { OBJECTIVE_WEIGHT_MESSAGES, weightProblemMessage } from '@/lib/validation/objective'
 import { usePrefs } from '@/lib/prefs/PrefsProvider'
 import type { DeptDetailVm, ObjectiveVm } from '@/lib/queries/department'
 import styles from './editor.module.css'
@@ -54,7 +55,9 @@ export function ObjectiveWeightsPanel({
       <p className={styles.weightBar}>{t('objectiveWeightsHint')}</p>
       {sets.map((s) => (
         <PeriodWeights
-          key={s.period.id}
+          // Remount when the objective set or their saved weights change (e.g. after
+          // router.refresh), so inputs never stay index-aligned with the wrong objective.
+          key={`${s.period.id}:${s.objectives.map((o) => `${o.id}=${o.weight ?? ''}`).join(',')}`}
           deptId={deptId}
           periodId={s.period.id}
           periodCode={s.period.code}
@@ -92,6 +95,12 @@ function PeriodWeights({
 
   const weights = values.map(parseWeight)
   const problem = checkWeights(weights, { required: false })
+  const problemMessage =
+    problem === null
+      ? null
+      : problem === 'partial'
+        ? OBJECTIVE_WEIGHT_MESSAGES.partial
+        : weightProblemMessage(problem, weightTotal(weights))
   const anyWeight = values.some((v) => v.trim() !== '')
 
   async function onSave() {
@@ -124,12 +133,14 @@ function PeriodWeights({
             <input
               id={inputId} className={styles.input} type="number" step="0.01" min="0" max="100"
               value={values[i]}
+              aria-describedby={`${inputId}-unit`}
               aria-invalid={problem !== null ? true : undefined}
               onChange={(e) => {
                 const v = e.target.value
                 setValues((prev) => prev.map((x, j) => (j === i ? v : x)))
               }}
             />
+            <small id={`${inputId}-unit`}>{t('fieldWeight')}</small>
           </div>
         )
       })}
@@ -140,13 +151,14 @@ function PeriodWeights({
           </span>
         ) : null}
       </div>
+      {problemMessage ? <p className={styles.note}>{tx(problemMessage, lang)}</p> : null}
       {error ? <p className={styles.error} role="alert">{error}</p> : null}
       <div className={styles.panelActions}>
         <button
           type="button" className={styles.primary}
           disabled={problem !== null || pending} onClick={onSave}
         >
-          {pending ? '…' : t('save')}
+          {pending ? '…' : t('saveWeights')}
         </button>
       </div>
     </section>
