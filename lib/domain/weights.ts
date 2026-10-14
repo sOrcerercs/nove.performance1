@@ -37,3 +37,16 @@ export function equalWeights(n: number): number[] {
   const first = Math.round((100 - base * (n - 1)) * 100) / 100
   return [first, ...Array.from({ length: n - 1 }, () => base)]
 }
+
+export type WeightSetState = 'none' | 'complete' | 'incomplete'
+
+/**
+ * Where a set of weights stands: `none` — nobody has weighted it (every
+ * objective before weights existed); `complete` — every member weighted and
+ * adding up to 100; anything in between is `incomplete`, which is what a
+ * complete set becomes when a member is added or removed later.
+ */
+export function weightSetState(ws: readonly (number | null | undefined)[]): WeightSetState {
+  if (!ws.some(isSet)) return 'none'
+  return checkWeights(ws, { required: true }) === null ? 'complete' : 'incomplete'
+}
