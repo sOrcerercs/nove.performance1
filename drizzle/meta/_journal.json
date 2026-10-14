@@ -64,6 +64,13 @@
       "when": 1791283710914,
       "tag": "0008_must_change_password",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1791975637961,
+      "tag": "0009_objective_weights",
+      "breakpoints": true
     }
   ]
 }

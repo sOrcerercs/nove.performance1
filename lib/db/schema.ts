@@ -95,6 +95,13 @@ export const objectives = pgTable('objectives', {
   titleTr: text('title_tr').notNull(),
   titleEn: text('title_en').notNull(),
   ownerUserId: text('owner_user_id').references(() => users.id),
+  /**
+   * Share of the department's progress within this objective's period, in
+   * percent (0 < w ≤ 100). Either every objective of a department in a period
+   * has one and they add up to 100, or the department averages its objectives
+   * equally (see weights.ts and `deptPct` in progress.ts).
+   */
+  weight: doublePrecision('weight'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
