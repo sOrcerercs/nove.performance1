@@ -69,6 +69,8 @@ export interface ObjNode {
   departmentId: string
   /** Which period this objective belongs to — an objective is in exactly one. */
   periodId: string
+  /** Percent share of the department within its period; null = unweighted. */
+  weight: number | null
   krs: KrNode[]
 }
 
@@ -266,6 +268,7 @@ export async function loadTree(
       ownerName: o.ownerUserId ? (nameById.get(o.ownerUserId) ?? '') : '',
       departmentId: o.departmentId,
       periodId: o.periodId,
+      weight: o.weight,
       krs: krsByObjective.get(o.id) ?? [],
     }
     const list = objsByDept.get(o.departmentId)

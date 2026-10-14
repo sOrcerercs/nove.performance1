@@ -58,6 +58,8 @@ const OBJ: ObjectiveDetailVm = {
   deptNameTr: 'Satış',
   deptNameEn: 'Sales',
   periodCode: '2026',
+  weight: null,
+  periodId: 'p-2026-fy',
   krs: [
     {
       ownerUserId: null,

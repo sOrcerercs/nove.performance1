@@ -118,3 +118,13 @@ test('a user starts with no pending password change, and the shared read says wh
   expect(admin.mustChangePassword).toBe(false)
   expect(admin).not.toHaveProperty('passwordHash')
 })
+
+test('an objective stores an optional weight', async () => {
+  const db = await createTestDb()
+  await seed(db)
+  const [before] = await db.select().from(objectives).where(eq(objectives.id, 'o-sat-1'))
+  expect(before!.weight).toBeNull()
+  await db.update(objectives).set({ weight: 62.5 }).where(eq(objectives.id, 'o-sat-1'))
+  const [after] = await db.select().from(objectives).where(eq(objectives.id, 'o-sat-1'))
+  expect(after!.weight).toBe(62.5)
+})

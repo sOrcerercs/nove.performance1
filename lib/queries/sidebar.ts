@@ -57,7 +57,7 @@ export async function getSidebarData(
 
   const pctBySlug: Record<string, number> = {}
   for (const d of depts) {
-    pctBySlug[d.slug] = deptPct(d.objectives.map((o) => ({ krs: measuredKrsOf(o.krs) })))
+    pctBySlug[d.slug] = deptPct(d.objectives.map((o) => ({ ...o, krs: measuredKrsOf(o.krs) })))
   }
 
   return {

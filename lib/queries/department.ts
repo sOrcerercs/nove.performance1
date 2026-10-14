@@ -1,6 +1,7 @@
 import type { Db } from '@/lib/db'
 import { deptPct, krPct, objPct } from '@/lib/domain/progress'
 import type { Confidence, RollupRule } from '@/lib/domain/types'
+import { weightSetState, type WeightSetState } from '@/lib/domain/weights'
 import { allDepartments, allUsers } from './tables'
 import { loadTree, measuredKrsOf, type DeptNode, type KrNode, type ObjNode } from './tree'
 
@@ -52,11 +53,16 @@ export interface ObjectiveVm {
   titleTr: string
   titleEn: string
   ownerName: string
+  /** Percent share of the department within its period; null = unweighted. */
+  weight: number | null
+  /** Which period's weight set this objective belongs to. */
+  periodId: string
   pct: number
   krs: KrVm[]
 }
 
 export interface DeptDetailVm {
+  id: string
   slug: string
   emoji: string
   nameTr: string
@@ -64,6 +70,12 @@ export interface DeptDetailVm {
   leadName: string
   pct: number
   objectives: ObjectiveVm[]
+  /**
+   * The periods the page covers, each with the state of this department's
+   * objective weights in it — the weights panel edits one set per period, and
+   * `incomplete` is what the "weights are incomplete" note reads.
+   */
+  periods: { id: string; code: string; weightState: WeightSetState }[]
 }
 
 export interface ObjectiveDetailVm extends ObjectiveVm {
@@ -110,6 +122,8 @@ function toObjectiveVm(obj: ObjNode): ObjectiveVm {
     // of them, so a key result with no data by the cutoff is still visible but
     // does not move the number.
     pct: objPct(measuredKrsOf(obj.krs)),
+    weight: obj.weight,
+    periodId: obj.periodId,
     krs: obj.krs.map(toKrVm),
   }
 }
@@ -130,11 +144,12 @@ export async function getDepartment(
   periodIds: readonly string[],
   asOf?: string,
 ): Promise<DeptDetailVm | null> {
-  const { depts } = await loadTree(db, periodIds, asOf)
+  const { periods, depts } = await loadTree(db, periodIds, asOf)
   const dept = depts.find((d) => d.slug === slug)
   if (!dept) return null
 
   return {
+    id: dept.id,
     slug: dept.slug,
     emoji: dept.emoji,
     nameTr: dept.nameTr,
@@ -143,9 +158,16 @@ export async function getDepartment(
     // Filtering at the leaf makes `measuredOnly` unnecessary on this path:
     // `deptPct` already excludes an objective left with no measured key
     // results (`hasMeasurableKr`); the predicate still comes from the one
-    // definition, `measuredKrsOf`.
-    pct: deptPct(dept.objectives.map((o) => ({ krs: measuredKrsOf(o.krs) }))),
+    // definition, `measuredKrsOf`. The spread keeps `weight` and `periodId`.
+    pct: deptPct(dept.objectives.map((o) => ({ ...o, krs: measuredKrsOf(o.krs) }))),
     objectives: dept.objectives.map(toObjectiveVm),
+    periods: periods.map((p) => ({
+      id: p.id,
+      code: p.code,
+      weightState: weightSetState(
+        dept.objectives.filter((o) => o.periodId === p.id).map((o) => o.weight),
+      ),
+    })),
   }
 }
 
@@ -190,6 +212,7 @@ export async function getDepartmentForPage(
     return {
       kind: 'empty-range',
       dept: {
+        id: dept.id,
         slug: dept.slug,
         emoji: dept.emoji,
         nameTr: dept.nameTr,
@@ -197,6 +220,7 @@ export async function getDepartmentForPage(
         leadName: dept.leadUserId ? (nameById.get(dept.leadUserId) ?? '') : '',
         pct: deptPct([]),
         objectives: [],
+        periods: [],
       },
     }
   }
