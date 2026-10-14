@@ -17,6 +17,7 @@ export type Action =
   | 'create:objective'
   | 'edit:objective'
   | 'checkin:kr'
+  | 'manage:objective-weights'
 
 export interface ResourceContext {
   departmentId?: string | null
@@ -27,9 +28,9 @@ export interface ResourceContext {
  * The single source of truth for authorization.
  *
  * Only İK and Yönetim use this system, so the model is deliberately flat:
- * `admin` does everything; `executive` (the board) reads and owns the
- * objectives themselves — create, edit, delete — but not the system around
- * them (users, periods, departments, help, check-ins). There is no per-department
+ * `admin` does everything; `executive` (the board) reads, owns the objectives
+ * themselves — create, edit, delete — and sets their weights, but not the
+ * system around them (users, periods, departments, help, check-ins). There is no per-department
  * scoping because there are no department-lead accounts to scope — the
  * resource context is still accepted so callers need not change if scoped
  * roles ever come back.
@@ -49,11 +50,14 @@ export function can(
 
   if (user.role === 'admin') return true
 
-  // executive — the board: oversight plus the objectives themselves.
+  // executive — the board: oversight plus the objectives and their weights.
   switch (action) {
     case 'view:report':
     case 'create:objective':
     case 'edit:objective':
+    // Management decides how much each objective counts; that decision is
+    // theirs to enter, not something admin has to transcribe.
+    case 'manage:objective-weights':
       return true
     case 'manage:users':
     case 'manage:periods':

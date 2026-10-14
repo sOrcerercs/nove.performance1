@@ -1,4 +1,5 @@
 import type { KrLike } from './types'
+import { weightSetState } from './weights'
 
 /**
  * Progress of a single key result, as a percentage of the distance from its
@@ -51,28 +52,64 @@ export function objPct(krs: KrLike[]): number {
   return Math.round(measurable.reduce((a, k) => a + krPct(k) * (k.weight as number), 0) / total)
 }
 
+/** What the department and company averages read off an objective. */
+export interface ObjLike {
+  krs: KrLike[]
+  /** Percent share of the department within its period; absent or null = unweighted. */
+  weight?: number | null
+  periodId?: string
+}
+
 /** An objective contributes a percentage only if some key result can be measured. */
 const hasMeasurableKr = (o: { krs: KrLike[] }): boolean => o.krs.some(isMeasurable)
 
 /**
- * Unweighted mean of the objectives, *not* of the key results underneath them.
+ * Whether a department's objectives may be averaged by weight: every period
+ * they come from carries a complete set (every objective weighted, adding up
+ * to 100). Judged on all the objectives passed in — before measurability —
+ * so an objective with nothing measured yet does not break its period's set.
+ * One incomplete period sends the whole range back to the plain mean, rather
+ * than mixing weighted and unweighted periods into a figure nobody chose.
+ */
+export function objectiveWeightsComplete(objectives: readonly ObjLike[]): boolean {
+  if (objectives.length === 0) return false
+  const byPeriod = new Map<string, (number | null | undefined)[]>()
+  for (const o of objectives) {
+    const key = o.periodId ?? ''
+    const list = byPeriod.get(key)
+    if (list) list.push(o.weight)
+    else byPeriod.set(key, [o.weight])
+  }
+  return [...byPeriod.values()].every((ws) => weightSetState(ws) === 'complete')
+}
+
+/**
+ * Mean of the objectives, *not* of the key results underneath them — weighted
+ * when `objectiveWeightsComplete`, with the weights re-proportioned among the
+ * measurable objectives; otherwise the plain mean every department had before
+ * objective weights existed.
  *
  * Objectives with nothing measurable are excluded rather than counted as 0 —
  * the same reasoning as `companyPct` skipping departments with no objectives.
  * A zero there would mean "this department is failing" when it actually means
  * "nobody has set these targets yet".
  */
-export function deptPct(objectives: { krs: KrLike[] }[]): number {
-  return mean(objectives.filter(hasMeasurableKr).map((o) => objPct(o.krs)))
+export function deptPct(objectives: ObjLike[]): number {
+  const measurable = objectives.filter(hasMeasurableKr)
+  if (measurable.length === 0 || !objectiveWeightsComplete(objectives)) {
+    return mean(measurable.map((o) => objPct(o.krs)))
+  }
+  const total = measurable.reduce((a, o) => a + (o.weight as number), 0)
+  return Math.round(measurable.reduce((a, o) => a + objPct(o.krs) * (o.weight as number), 0) / total)
 }
 
 /**
  * Departments with nothing planned — or nothing measurable — yet are excluded
  * rather than counted as 0, for the same reason `deptPct` excludes such
  * objectives: a department stuck at "no targets set" should not read as a
- * department stuck at "failing".
+ * department stuck at "failing". Departments are not weighted.
  */
-export function companyPct(depts: { objectives: { krs: KrLike[] }[] }[]): number {
+export function companyPct(depts: { objectives: ObjLike[] }[]): number {
   return mean(
     depts.filter((d) => d.objectives.some(hasMeasurableKr)).map((d) => deptPct(d.objectives)),
   )

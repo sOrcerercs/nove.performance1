@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation'
 import { DepartmentScreen } from '@/components/okr/ObjectiveCard'
+import { can } from '@/lib/auth/permissions'
 import { requireUser } from '@/lib/auth/session'
 import { asOfCutoff, todayInIstanbul } from '@/lib/domain/dates'
 import { getDb } from '@/lib/db'
@@ -13,7 +14,7 @@ export default async function DepartmentPage({
   params: Promise<{ slug: string }>
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
-  await requireUser()
+  const user = await requireUser()
   const { slug } = await params
 
   const db = await getDb()
@@ -33,6 +34,7 @@ export default async function DepartmentPage({
       selection={selection}
       asOf={asOf}
       today={todayInIstanbul(now)}
+      canEditWeights={can(user, 'manage:objective-weights', { departmentId: result.dept.id })}
     />
   )
 }

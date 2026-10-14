@@ -7,7 +7,7 @@ import { Topbar } from '@/components/shell/Topbar'
 import { Avatar } from '@/components/ui/Avatar'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import { StatusBadge } from '@/components/ui/StatusBadge'
-import { formatAsOf, formatCount } from '@/lib/domain/format'
+import { formatAsOf, formatCount, formatWeight } from '@/lib/domain/format'
 import { STATUS_VARS, statusOf } from '@/lib/domain/status'
 import { tx } from '@/lib/i18n/strings'
 import { usePrefs } from '@/lib/prefs/PrefsProvider'
@@ -16,6 +16,7 @@ import shell from '@/components/shell/shell.module.css'
 import type { AssignablePerson } from '@/lib/queries/people'
 import type { RangeSelection } from '@/lib/queries/range'
 import { ObjectiveEditor } from './ObjectiveEditor'
+import { ObjectiveWeightsPanel } from './ObjectiveWeightsPanel'
 import styles from '@/app/(app)/okr.module.css'
 
 /**
@@ -54,6 +55,9 @@ export function ObjectiveCard({
         <div className={styles.cardMain}>
           <span className={styles.overline}>
             {t('objective')} · {objective.code}
+            {objective.weight != null ? (
+              <span className={styles.weight}>{formatWeight(objective.weight, lang)}</span>
+            ) : null}
           </span>
           <Link href={`/objective/${objective.id}`} className={styles.cardTitle}>
             {title}
@@ -100,6 +104,7 @@ export function DepartmentScreen({
   selection,
   asOf,
   today,
+  canEditWeights,
 }: {
   dept: DeptDetailVm
   selection: RangeSelection
@@ -112,6 +117,8 @@ export function DepartmentScreen({
    *  Date()` here, which would risk a server/client hydration mismatch and
    *  break the Europe/Istanbul convention "today" follows everywhere else. */
   today: string
+  /** Server-decided (`manage:objective-weights`); the action re-checks regardless. */
+  canEditWeights: boolean
 }) {
   const { t, lang } = usePrefs()
   const name = tx({ tr: dept.nameTr, en: dept.nameEn }, lang)
@@ -154,6 +161,14 @@ export function DepartmentScreen({
               <ProgressBar pct={dept.pct} label={`${name} — ${t('deptAvg')}`} />
             </div>
           </div>
+
+          {dept.periods.some((p) => p.weightState !== 'none') && !dept.periods.every((p) => p.weightState === 'complete') ? (
+            <p className={styles.note} role="status">{t('objectiveWeightsIncomplete')}</p>
+          ) : null}
+
+          {canEditWeights ? (
+            <ObjectiveWeightsPanel deptId={dept.id} periods={dept.periods} objectives={dept.objectives} />
+          ) : null}
 
           {dept.objectives.length > 0 ? (
             <div className={styles.objectiveList}>
