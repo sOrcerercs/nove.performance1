@@ -4,9 +4,8 @@ import type { SessionUser } from '@/lib/auth/permissions'
 import { createTestDb, type Db } from '@/lib/db'
 import { objectives } from '@/lib/db/schema'
 import { seed } from '@/lib/db/seed'
-import { SEED_OBJECTIVE_PERIOD_CODE, SEED_OBJECTIVE_PERIOD_ID } from '@/lib/db/seed-data'
+import { SEED_OBJECTIVE_PERIOD_ID } from '@/lib/db/seed-data'
 import type { Role } from '@/lib/domain/types'
-import { createObjectiveFor } from '../core/objectives'
 import { setObjectiveWeightsFor } from '../core/objective-weights'
 
 async function seeded() {
@@ -51,14 +50,6 @@ test('a staff record may not', async () => {
   const res = await setObjectiveWeightsFor(db, actor('staff'), input(50, 50))
   expect(res.ok).toBe(false)
   expect(await weightOf(db, 'o-sat-1')).toBeNull()
-})
-
-test('an executive still may not create an objective', async () => {
-  const res = await createObjectiveFor(await seeded(), actor('executive'), {
-    title: 'Deneme', departmentId: 'satis', ownerUserId: null, periodCode: SEED_OBJECTIVE_PERIOD_CODE,
-    krs: [{ title: 'KR', start: 0, target: 10, unit: '', rollup: 'last' as const, weight: 100 }],
-  })
-  expect(res.ok).toBe(false)
 })
 
 test('totals of 99.99 and 100.01 are refused with the total in both languages', async () => {

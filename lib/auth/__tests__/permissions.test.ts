@@ -35,11 +35,13 @@ test('admin is not scoped to a department', () => {
   expect(can(admin, 'checkin:kr', { ownerUserId: 'someone-else' })).toBe(true)
 })
 
-test('executive reads the report and sets objective weights, nothing else', () => {
+test('executive reads the report, manages objectives and their weights — nothing else', () => {
   const exec = user('executive')
-  expect(can(exec, 'view:report')).toBe(true)
-  expect(can(exec, 'manage:objective-weights', { departmentId: 'satis' })).toBe(true)
-  for (const action of ALL_ACTIONS.filter((a) => a !== 'view:report' && a !== 'manage:objective-weights')) {
+  const allowed = ['view:report', 'create:objective', 'edit:objective', 'manage:objective-weights'] as const
+  for (const action of allowed) {
+    expect(can(exec, action, { departmentId: 'satis' }), action).toBe(true)
+  }
+  for (const action of ALL_ACTIONS.filter((a) => !(allowed as readonly string[]).includes(a))) {
     expect(can(exec, action), action).toBe(false)
   }
 })
