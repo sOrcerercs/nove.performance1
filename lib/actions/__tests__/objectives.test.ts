@@ -86,9 +86,9 @@ test('a staff record may not create an objective', async () => {
   expect(res.ok).toBe(false)
 })
 
-test('an executive may not create an objective — oversight is read-only', async () => {
-  const res = await createObjectiveFor(await seeded(), actor('executive', null), validInput())
-  expect(res.ok).toBe(false)
+test('an executive (board member) creates an objective in any department', async () => {
+  const res = await createObjectiveFor(await seeded(), actor('executive', null), validInput('satis'))
+  expect(res.ok).toBe(true)
 })
 
 test('an admin creates in any department, not just their own', async () => {
@@ -550,21 +550,23 @@ test('adding a brand-new key result with start equal to target within an edit is
   expect(await krsOf(db, SAHA_OBJ)).toHaveLength(existing.length)
 })
 
-test('an executive cannot edit or delete an objective', async () => {
+test('an executive (board member) edits and deletes an objective', async () => {
   const db = await seeded()
   const existing = await krsOf(db, SAHA_OBJ)
 
   const edit = await updateObjectiveFor(db, actor('executive', null), {
-    id: SAHA_OBJ, title: 'Değişmemeli', ownerUserId: null,
+    id: SAHA_OBJ, title: 'Kurul düzenledi', ownerUserId: null,
     krs: existing.map((k) => ({
       id: k.id, title: k.titleTr, start: k.start,
       target: k.target, unit: k.unit, confidence: k.confidence, rollup: k.rollup,
     })),
   })
-  expect(edit.ok).toBe(false)
+  expect(edit.ok).toBe(true)
+  const [edited] = await db.select().from(objectives).where(eq(objectives.id, SAHA_OBJ))
+  expect(edited!.titleTr).toBe('Kurul düzenledi')
 
-  expect((await deleteObjectiveFor(db, actor('executive', null), { id: SAHA_OBJ })).ok).toBe(false)
-  expect(await db.select().from(objectives).where(eq(objectives.id, SAHA_OBJ))).toHaveLength(1)
+  expect((await deleteObjectiveFor(db, actor('executive', null), { id: SAHA_OBJ })).ok).toBe(true)
+  expect(await db.select().from(objectives).where(eq(objectives.id, SAHA_OBJ))).toHaveLength(0)
 })
 
 test('the deletion impact reports what will be lost', async () => {

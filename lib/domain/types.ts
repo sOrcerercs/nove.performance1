@@ -14,7 +14,8 @@ export type StatusKey = 'above' | 'expected' | 'below' | 'open' | 'none'
  * team-member logins.
  *
  * - `admin`     — İK / Yönetim. Full access, including user management.
- * - `executive` — read-only oversight.
+ * - `executive` — the board. Reads everything; creates, edits and deletes
+ *                 objectives. No user, period or department management.
  * - `staff`     — personnel record only. Named as an objective or key-result
  *                 owner, but cannot sign in and holds no password.
  */

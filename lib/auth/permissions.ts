@@ -27,7 +27,9 @@ export interface ResourceContext {
  * The single source of truth for authorization.
  *
  * Only İK and Yönetim use this system, so the model is deliberately flat:
- * `admin` does everything, `executive` reads. There is no per-department
+ * `admin` does everything; `executive` (the board) reads and owns the
+ * objectives themselves — create, edit, delete — but not the system around
+ * them (users, periods, departments, help, check-ins). There is no per-department
  * scoping because there are no department-lead accounts to scope — the
  * resource context is still accepted so callers need not change if scoped
  * roles ever come back.
@@ -47,16 +49,16 @@ export function can(
 
   if (user.role === 'admin') return true
 
-  // executive — oversight only.
+  // executive — the board: oversight plus the objectives themselves.
   switch (action) {
     case 'view:report':
+    case 'create:objective':
+    case 'edit:objective':
       return true
     case 'manage:users':
     case 'manage:periods':
     case 'manage:departments':
     case 'manage:help':
-    case 'create:objective':
-    case 'edit:objective':
     case 'checkin:kr':
       return false
     default: {
