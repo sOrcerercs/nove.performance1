@@ -74,7 +74,7 @@ export async function getReport(
     // Feeds both `openKrs` and `pct` below — the row still *lists* every key
     // result (`krs.length`, just above, is deliberately unfiltered), but a key
     // result with no measurement by the cutoff must not move either number.
-    const measuredObjectives = d.objectives.map((o) => ({ krs: measuredKrsOf(o.krs) }))
+    const measuredObjectives = d.objectives.map((o) => ({ ...o, krs: measuredKrsOf(o.krs) }))
     return {
       slug: d.slug,
       emoji: d.emoji,
