@@ -19,6 +19,7 @@ const ALL_ACTIONS = [
   'create:objective',
   'edit:objective',
   'checkin:kr',
+  'manage:objective-weights',
 ] as const
 
 test('admin can do everything', () => {
@@ -34,10 +35,11 @@ test('admin is not scoped to a department', () => {
   expect(can(admin, 'checkin:kr', { ownerUserId: 'someone-else' })).toBe(true)
 })
 
-test('executive reads the report and nothing else', () => {
+test('executive reads the report and sets objective weights, nothing else', () => {
   const exec = user('executive')
   expect(can(exec, 'view:report')).toBe(true)
-  for (const action of ALL_ACTIONS.filter((a) => a !== 'view:report')) {
+  expect(can(exec, 'manage:objective-weights', { departmentId: 'satis' })).toBe(true)
+  for (const action of ALL_ACTIONS.filter((a) => a !== 'view:report' && a !== 'manage:objective-weights')) {
     expect(can(exec, action), action).toBe(false)
   }
 })
