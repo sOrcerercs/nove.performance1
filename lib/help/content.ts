@@ -43,12 +43,12 @@ export const BUILTIN_HELP: readonly HelpArticle[] = [
     {
       tr: `Nove'un OKR'larını (Objective ve Key Result) tek yerde takip eder.
 
-Yapı üç katmanlı: **bölüm** → **objective** → **key result**. Bir bölümün ilerlemesi, objective'lerinin ortalaması; bir objective'in ilerlemesi de key result'larının ortalamasıdır. Hepsi ağırlıksız — ölçülebilir her key result eşit sayar. "Ölçülemiyor" rozeti taşıyan bir key result hiç sayılmaz, sıfır olarak da değil — bkz. "'Ölçülemiyor' rozeti ne anlama geliyor?".
+Yapı üç katmanlı: **bölüm** → **objective** → **key result**. Bir bölümün ilerlemesi, objective'lerinin ortalaması; bir objective'in ilerlemesi de key result'larının ortalamasıdır. Ağırlık girilmemişse hepsi eşit sayar; ağırlık girildiyse ortalama ağırlıklı olur — bkz. "Key result ağırlığı nedir, nasıl girilir?" ve "Objective ağırlığı nedir, kim girer?". "Ölçülemiyor" rozeti taşıyan bir key result hiç sayılmaz, sıfır olarak da değil — bkz. "'Ölçülemiyor' rozeti ne anlama geliyor?".
 
 Aynı kural bir üst katmanda da geçerli: hiçbir key result'u ölçülemeyen bir objective, objective ortalamasına katılmaz. Şirket ilerlemesi de objective'i olan bölümlerin ortalamasıdır. Objective'i olmayan — ya da hiçbir key result'u ölçülemeyen — bölüm ortalamaya katılmaz, %0 olarak sayılmaz.`,
       en: `It tracks Nove's OKRs (objectives and key results) in one place.
 
-There are three levels: **department** → **objective** → **key result**. A department's progress is the average of its objectives; an objective's progress is the average of its key results. None of it is weighted — every measurable key result counts equally. A key result with the "Not measurable" badge is not counted at all, not even as zero — see "What does the 'Not measurable' badge mean?".
+There are three levels: **department** → **objective** → **key result**. A department's progress is the average of its objectives; an objective's progress is the average of its key results. Without weights everything counts equally; once weights are entered the average is weighted — see "What is a key result weight and how do I enter it?" and "What is an objective weight and who enters it?". A key result with the "Not measurable" badge is not counted at all, not even as zero — see "What does the 'Not measurable' badge mean?".
 
 The same rule applies one level up: an objective with no measurable key result is left out of the objective average. Company progress is the average of the departments that have objectives. A department with no objectives — or with no measurable key result — is left out of the average, not counted as 0%.`,
     },
@@ -65,14 +65,14 @@ The same rule applies one level up: an objective with no measurable key result i
 
 **Yönetici** — her şeyi yapar: objective açma, check-in, kullanıcı, bölüm ve dönem yönetimi.
 
-**Üst Yönetim** — yalnızca okur. Rapor dahil her şeyi görür, hiçbir şeyi değiştiremez.
+**Üst Yönetim** — Yönetim Kurulu. Rapor dahil her şeyi görür; objective açar, düzenler, siler ve objective ağırlıklarını girer. Check-in, kullanıcı, bölüm ve dönem yönetimi yapamaz.
 
 **Personel** — programa **giriş yapamaz**. Objective ve key result'larda "sorumlu" olarak adı görünür, parolası yoktur. Bölüm liderleri ve ekip üyeleri bu kategoridedir.`,
       en: `Only Human Resources and Management. There are three roles:
 
 **Admin** — can do everything: create objectives, check in, manage users, departments and periods.
 
-**Executive** — read-only. Sees everything, including the report, but cannot change anything.
+**Executive** — the board. Sees everything, including the report; creates, edits and deletes objectives and enters objective weights. Cannot check in or manage users, departments or periods.
 
 **Staff** — **cannot sign in**. Their name appears as "owner" on objectives and key results; they have no password. Department leads and team members are in this group.`,
     },
@@ -195,14 +195,14 @@ Your choice is saved in your browser and does not affect other users. The **Comp
 
 **1. Objective** — adı, bölümü ve sorumlusunu seçin. Ad alanının altında canlı bir ipucu var: çok kısa yazarsanız "ne değişecek?" diye uyarır, sonuç odaklı bir ad yazınca yeşile döner.
 
-**2. Key Results** — 1 ile 5 arası key result. Her biri için başlangıç, hedef, birim ve sorumlu girin.
+**2. Key Results** — 1 ile 5 arası key result. Her biri için başlangıç, hedef, birim ve sorumlu girin. Her key result'a bir de **ağırlık** verin; toplam tam %100 olmalı — bkz. "Key result ağırlığı nedir, nasıl girilir?".
 
 Objective her zaman **o an açık olan döneme** yazılır. Topbar'daki tarih aralığı filtresi hangi verilerin görüntülendiğini değiştirir, yeni objective'in hangi döneme gideceğini değiştirmez — geçmiş bir aralık seçili olsa bile sihirbaz açık dönemi kullanır.`,
       en: `**+ New objective** in the left menu. There are two steps:
 
 **1. Objective** — choose the name, department and owner. A live hint under the name field warns "what will change?" if you write too little, and turns green once the name is outcome-oriented.
 
-**2. Key Results** — 1 to 5 key results. For each, enter the start, target, unit and owner.
+**2. Key Results** — 1 to 5 key results. For each, enter the start, target, unit and owner. Give each key result a **weight** too; they must add up to exactly 100% — see "What is a key result weight and how do I enter it?".
 
 The objective always goes into **the period that is open right now**. The date range filter in the topbar changes which data you see, not which period the new objective goes into — even with a past range selected, the wizard uses the open period.`,
     },
@@ -231,16 +231,96 @@ You can view the key results of an existing objective in a closed period, but yo
       en: 'How do I edit or delete an objective?',
     },
     {
-      tr: `Objective'in kendi sayfasına gidin (bölüm ekranından başlığa tıklayarak), üstte **Düzenle** ve **Sil** düğmeleri var.
+      tr: `Objective'in kendi sayfasına gidin (bölüm ekranından başlığa tıklayarak), üstte **Düzenle** ve **Sil** düğmeleri var. Bu düğmeleri **Yönetici** ve **Üst Yönetim** görür.
 
-**Düzenle** ile objective adını, sorumlusunu ve tüm key result'ları değiştirebilirsiniz — mevcut olanları güncelleyebilir, yenisini ekleyebilir, çıkarabilirsiniz.
+**Düzenle** ile objective adını, sorumlusunu ve tüm key result'ları değiştirebilirsiniz — mevcut olanları güncelleyebilir, yenisini ekleyebilir, çıkarabilirsiniz. Key result ağırlıkları da buradan değiştirilir.
 
 **Sil geri alınamaz.** Onay kutusu, silmenin kaç key result ve kaç check-in kaydını da götüreceğini söyler. Devam etmeden okuyun.`,
-      en: `Go to the objective's own page (click its title on the department screen); the **Edit** and **Delete** buttons are at the top.
+      en: `Go to the objective's own page (click its title on the department screen); the **Edit** and **Delete** buttons are at the top. **Admins** and **Executives** see these buttons.
 
-With **Edit** you can change the objective's name, its owner and all its key results — update existing ones, add new ones, remove some.
+With **Edit** you can change the objective's name, its owner and all its key results — update existing ones, add new ones, remove some. Key result weights are changed here too.
 
 **Delete cannot be undone.** The confirmation box tells you how many key results and check-in records will go with it. Read it before you continue.`,
+    },
+  ),
+  entry(
+    'kr-agirlik',
+    'okr',
+    {
+      tr: 'Key result ağırlığı nedir, nasıl girilir?',
+      en: 'What is a key result weight and how do I enter it?',
+    },
+    {
+      tr: `Ağırlık, bir key result'ın objective ilerlemesine ne kadar yansıyacağını söyleyen yüzdedir. Önemli key result'a daha büyük pay verirsiniz.
+
+Yeni objective açarken her key result'a ağırlık girmek **zorunludur** ve toplam tam %100 olmalıdır; sayaç "Toplam %X / 100" gösterir, **Eşit dağıt** düğmesi payları eşit böler. Objective sayfasındaki **Düzenle** ekranında ağırlıklar ya hepsine girilir ya hepsi boş bırakılır.
+
+Objective ilerlemesi, ölçülebilir key result'ların ağırlıklı ortalamasıdır: "Ölçülemiyor" rozetli bir key result düşer, kalanların ağırlıkları kendi aralarında yeniden oranlanır. Ağırlığı girilmemiş eski objective'ler eşit ortalamayla hesaplanır ve kartlarında "ağırlık girilmedi" yazar.`,
+      en: `A weight is the percentage that says how much a key result counts toward its objective's progress. You give the important key result a larger share.
+
+When creating a new objective, a weight for every key result is **required** and they must add up to exactly 100%; the counter shows "Total X% / 100", and the **Split evenly** button divides the shares equally. On the objective page's **Edit** screen, either every key result gets a weight or all are left blank.
+
+An objective's progress is the weighted average of its measurable key results: a key result with the "Not measurable" badge drops out and the remaining weights are re-proportioned among themselves. Older objectives without weights are averaged equally and show "no weights set" on their card.`,
+    },
+  ),
+  entry(
+    'objective-agirlik',
+    'okr',
+    {
+      tr: 'Objective ağırlığı nedir, kim girer?',
+      en: 'What is an objective weight and who enters it?',
+    },
+    {
+      tr: `Objective ağırlığı, bir objective'in **bölüm yüzdesine** ne kadar yansıyacağını söyleyen yüzdedir. Ağırlıklar bir bölümün bir dönemdeki objective'lerine birlikte verilir ve o dönemde toplamı tam %100 olmalıdır. Sistem öneri yapmaz, "eşit dağıt" düğmesi yoktur; paylara yönetim karar verir.
+
+Girmek için bölüm sayfasında **Objective ağırlıkları** düğmesine basın. Her dönem için ayrı bir form açılır: objective'lerin yanına ağırlıkları yazın, sayaç %100'ü gösterince **Ağırlıkları kaydet** etkin olur. Düğme pasifse altında nedeni yazar. Hepsini boşaltıp kaydetmek ağırlıkları kaldırır.
+
+Bu düğmeyi yalnızca **Yönetici** ve **Üst Yönetim** görür. Girilen ağırlık, objective kartında küçük bir rozet (%30 gibi) olarak görünür. Hesabın nasıl değiştiği için bkz. "Objective ağırlıkları bölüm yüzdesini nasıl değiştiriyor?".`,
+      en: `An objective weight is the percentage that says how much an objective counts toward the **department percentage**. Weights are given together to a department's objectives in one period, and in that period they must add up to exactly 100%. The system makes no suggestion and there is no "split evenly" button; management decides the shares.
+
+To enter them, press **Objective weights** on the department page. A separate form opens for each period: type the weights next to the objectives, and **Save weights** becomes active once the counter shows 100%. If the button is disabled, the reason is shown under it. Clearing them all and saving removes the weights.
+
+Only **Admins** and **Executives** see this button. The weight appears as a small badge (such as 30%) on the objective card. For how the calculation changes, see "How do objective weights change the department percentage?".`,
+    },
+  ),
+  entry(
+    'objective-agirlik-hesap',
+    'okr',
+    {
+      tr: 'Objective ağırlıkları bölüm yüzdesini nasıl değiştiriyor?',
+      en: 'How do objective weights change the department percentage?',
+    },
+    {
+      tr: `Bir dönemin ağırlık seti **tamamsa** — o bölümün o dönemdeki her objective'inin ağırlığı var ve toplam %100 — bölüm yüzdesi objective'lerin ağırlıklı ortalaması olur. Örnek: O1 %70 ağırlıkla %80'de, O2 %30 ağırlıkla %40'taysa bölüm %68'dir; eşit sayılsaydı %60 olurdu.
+
+Hiç ölçülebilir key result'ı olmayan bir objective hesaba katılmaz; kalanların ağırlıkları kendi aralarında yeniden oranlanır, yani %0 sayılıp bölümü aşağı çekmez.
+
+Set tamam değilse bölüm yüzdesi eskisi gibi **eşit ortalamayla** hesaplanır. Tarih aralığı birden fazla dönemi kapsıyorsa dönemlerin hepsinin seti tam olmalıdır. Şirket yüzdesi değişmez: bölümlerin eşit ortalamasıdır, ama her bölüm kendi ağırlıklı yüzdesiyle katılır. Bölüm sayfası, sol menü, Performans Özeti ve Yönetici Raporu aynı sayıyı gösterir.`,
+      en: `If a period's weight set is **complete** — every objective of that department in that period has a weight and they add up to 100% — the department percentage is the weighted average of its objectives. Example: if O1 is at 80% with a 70% weight and O2 is at 40% with a 30% weight, the department is at 68%; counted equally it would be 60%.
+
+An objective with no measurable key result is left out; the remaining weights are re-proportioned among themselves, so it is not counted as 0% and does not drag the department down.
+
+If the set is not complete, the department percentage is calculated as before, as an **equal average**. If the date range covers more than one period, every period's set must be complete. Company progress does not change: it is the equal average of the departments, but each department takes part with its own weighted percentage. The department page, the left menu, the Performance Overview and the Executive Report all show the same number.`,
+    },
+  ),
+  entry(
+    'agirlik-eksik',
+    'okr',
+    {
+      tr: "'Ağırlıklar eksik' uyarısı ne anlama geliyor?",
+      en: "What does the 'Weights are incomplete' note mean?",
+    },
+    {
+      tr: `Bölüm sayfasında bu not görünüyorsa ağırlık girilmeye başlanmış ama set tamamlanmamış demektir. Genellikle ağırlıklar girildikten sonra bölüme **yeni bir objective eklenmiş** ya da biri **silinmiştir**: yeni objective'in ağırlığı yoktur, silinenin payı da toplamdan düşer, toplam artık %100 değildir.
+
+Bu durumda bölüm yüzdesi geçici olarak eşit ortalamayla hesaplanır. Düzeltmek için **Objective ağırlıkları** panelini açın, yeni listeye göre ağırlıkları tekrar %100'e tamamlayıp kaydedin — bkz. "Objective ağırlığı nedir, kim girer?".
+
+Panel açıkken başka biri objective ekler ya da silerse kayıt "Objective listesi değişmiş, sayfayı yenileyin." diye reddedilir; sayfayı yenileyip ağırlıkları tekrar girin.`,
+      en: `If this note appears on the department page, weights have been started but the set is not complete. Usually a **new objective was added** to the department, or one was **deleted**, after the weights were entered: the new objective has no weight, the deleted one's share drops out of the total, and the total is no longer 100%.
+
+In that case the department percentage is temporarily calculated as an equal average. To fix it, open the **Objective weights** panel, bring the weights back to 100% for the new list and save — see "What is an objective weight and who enters it?".
+
+If someone else adds or deletes an objective while the panel is open, saving is refused with "The objective list has changed; reload the page."; reload the page and enter the weights again.`,
     },
   ),
   entry(
@@ -491,12 +571,12 @@ But there is now a real monthly breakdown — a key result keeps not just a sing
       en: 'What is monthly data entry and where is it used?',
     },
     {
-      tr: `Sol menüdeki **Veri Girişi** — yalnızca check-in yetkisi olanlara görünür (bugünkü rol düzeninde bu sadece **Yönetici**); Üst Yönetim salt okur olduğu için bu bağlantıyı görmez.
+      tr: `Sol menüdeki **Veri Girişi** — yalnızca check-in yetkisi olanlara görünür (bugünkü rol düzeninde bu sadece **Yönetici**); Üst Yönetim'in check-in yetkisi olmadığı için bu bağlantıyı görmez.
 
 Ekran tek seferde bir ayı gösterir, ay seçiciden değiştirebilirsiniz — ama sadece **açık** dönemin ayları arasından. Kapalı veya planlanmış bir dönemin ayları burada hiç listelenmez ve buradan doldurulamaz.
 
 Her key result kendi satırında, hedefiyle ve toplama kuralıyla birlikte listelenir — bkz. "Bir key result'ın toplama kuralı (Toplam / Ortalama / Son değer) ne anlama geliyor?". Boş bırakılan bir değer alanı **"girilmedi"** demektir, sıfır değil; gerçekten sıfır ölçtüyseniz \`0\` yazmanız gerekir. **Kaydet** yalnızca o oturumda değiştirdiğiniz satırları tek seferde yazar; dokunmadığınız satırlar olduğu gibi kalır.`,
-      en: `**Data Entry** in the left menu — visible only to people allowed to check in (with today's roles that is only **Admin**); Executives are read-only, so they do not see this link.
+      en: `**Data Entry** in the left menu — visible only to people allowed to check in (with today's roles that is only **Admin**); Executives cannot check in, so they do not see this link.
 
 The screen shows one month at a time, and you can switch it with the month picker — but only among the months of the **open** period. Months of a closed or planned period are not listed here at all and cannot be filled in from here.
 
